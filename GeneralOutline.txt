@@ -80,3 +80,17 @@ GENERAL GAME PLAY
 
 OVERVIEW:
     
+    In this state the game will alternate between the two players allowing for the players to individually make their moves and then get feedback on the outcome of their shot. This stage will require a large number of states as there are a lot of checks that must be made. 
+
+    First we need to check what is in the grid at that location.
+        - If it is empty then we can write a miss to the grid, return a miss to 
+          the SPI and move on to the next players turn
+        - If it is a hit/miss then we need to request a new shot as the input
+          was not a valid shot
+        - If it is a ship then we need to enter into another set of states.
+    * The first two options will can likely be one or two states and really
+    shouldn't require very much logic or more extended thought other than 
+    needing to access the SRAM to determine the state of that grid cell
+
+    If it is a hit then we have a bunch of shit to do:
+        - 
