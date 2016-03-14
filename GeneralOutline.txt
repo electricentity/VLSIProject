@@ -1,0 +1,64 @@
+General Outline
+Jacob Nguyen and Michael Reeve 
+3/14/16
+
+***********************
+* Ideas and Concepts
+***********************
+
+** I was thinking about the fact that we might want a couple extra LEDS to indicate what ship they are currently working on inputting, it would  just be an extra 5 and we have enough extra SPI codes that we could totally do it, whether we actually want to bother with it is another question entirely
+
+** If we do more LEDS we could even make a error message code that can give the user some indication as to why the input they gave was invalid, such as:
+    - Ship goes over edge of board
+    - Ship overlaps with previously placed ship
+    - Wrong player inputting
+    - The shot that was taken has already been taken
+    - (Are there any other potential error messages we will end up with?)
+
+** How much information do we want to be storing outside of the grid, previously we had discussed:
+    - For each ship
+        - Starting location and orientation
+
+
+
+***********************
+*FSM STUFF
+***********************
+
+Main States:
+1. Start Game
+2. Set ships
+3. General game play
+4. End Game
+
+START GAME
+**********
+    We probably only need one state for this
+        - Reset everything (SRAM and FSM)
+        - send over SPI a signal to indicate that the boards should be cleared
+
+SET SHIPS
+*********
+
+OVERVIEW:
+
+    Set the five ships for the two players. Have a set order (23345 or 54332) so that we don't have to worry about them inputting the size of the ships. We can start with player one and only accept player 1s ships until all have been placed, then we can accept only player 2s ships. This means that the player select must be set correctly otherwise we will have to give an invalid input signal to the FPGA to notify them it is wrong. 
+
+    When we get an input from the user we will need to do a couple checks. 
+        - The correct player is doing the inputting
+        - The ship placement isn't going over the edge of the board
+        - The ship placement isn't overlapping another ship that has already been placed
+            - this step could potentially be skipped for the first ship.
+                - If we do this then for efficiency it might be better to input in the 54332 order as then we won't have to be checking for overlap on the 5 ship
+        - If they fail any of these checks we will have to request a new input for that length of ship
+
+    Once we have checked that the input is valid we will need to set the grid cells in SRAM to be a ship, we will need to initialize the ship of that lengths memory to have the desired starting location and orientation.
+
+    We then can move on to the next ship or the next player accordingly, probably will end up with two counters to allow for easy management of the state we are in. Once we have inputted all of the states we can move on to the general game play mode.
+
+GENERAL GAME PLAY
+*****************
+
+OVERVIEW:
+    
+    
