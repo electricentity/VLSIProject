@@ -2,6 +2,6 @@
 
 ## TODO
 * Verilog
-** SPI
-** SRAM
-** Controller
+..* SPI
+..* SRAM
+..* Controller
