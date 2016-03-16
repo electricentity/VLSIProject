@@ -94,3 +94,56 @@ OVERVIEW:
 
     If it is a hit then we have a bunch of shit to do:
         - 
+
+-----------------------------------------------------------------------------
+Jacob: I'll be writing a more concise version of what we need to do. A Work In Progress (WIP)
+
+Main States:
+1. Start Game
+2. Set ships
+3. General game play
+4. End Game
+
+START GAME
+**********
+    - Set Memory bits to 0
+    - Send SPI to FPGA to clear board
+
+
+SET SHIPS
+*********
+    - (SHIP ORDER: 54332)
+    - Player 1 goes first:
+        - Input row, col, direction (0 vertical, 1 horizontal, ship extends from that point)
+        - Press button to input info to chip
+            - If overlap/invalid position, send error message in some format, wait until next input
+            - Else, save ship location inside game board storage memory (save those memory bits as ship bits
+              , send that information to FPGA). Increment ship count.
+                - Save ship info inside ship storage memory.
+        - If ship count reaches 5, let player two start.
+    - Player 2 goes next:
+        - Do what player 1 does.
+    - Switch to General Gameplay.
+
+
+GENERAL GAME PLAY
+*****************
+    
+    - Toggle between Player 1 and 2 (assume correct switching IRL)
+    - Player 1/2 inputs an attack at some row, col.
+        - Check memory at the enemy location.
+            - If empty, save the memory as miss, inform both players using SPI.
+                - Switch players.
+            - If ship, save the memory as hit, inform both players using SPI.
+                - Use ship storage memory to determine whether ship has sunk.
+                    - If sunk, increment ship sunk count.
+                        - If ship sunk count is 5, switch to end game state.
+                    - Else, continue.
+                - Switch players.
+            - If miss/hit/invalid, inform both players using SPI, wait for next input.
+
+
+END GAME
+********
+    - Set Memory bits to 0
+    - Send SPI to FPGA to signify GAME OVER.
