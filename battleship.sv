@@ -1,42 +1,60 @@
 //------------------------------------------------
 // battleship.sv
 // Authors: Jacob Nguyen and Michael Reeve
-// Date: March 14, 2016
+// Date: March 19, 2016
 // VLSI Final Project: Battleship
-// Summary: The main file for Battleship
-// TO DO: A lot of things...
-// .........................
 //------------------------------------------------
 
 
-// Putting up placeholders for later
-//
-// NOTHING BELOW IS CORRECT AT ALL!
-//                        ^
-// READ THE ABOVE COMMENT |
-//
+
+//------------------------------------------------
+// Authors: Jacob Nguyen and Michael Reeve
+// Date: March 19, 2016
+// VLSI Final Project: Battleship
+// Module: Controller (FSM)
+// Summary: The module for the controller/fsm
+// TO DO: Finish all submodules and compatibility.
+//------------------------------------------------
 module battleship(input logic ph1, ph2, reset, read, player, direction,
 	              input logic [3:0] row, col,
                   output logic sclk, mosi);
 
     logic memread;
     logic memwrite;
-    logic [2:0] row_addr; // 10 rows required
-    logic [4:0] col_addr; // 20 columns required
+    logic [3:0] row_addr; // 10 rows required
+    logic [3:0] col_addr; // 10 columns required
 
 
     // Instantiate the FSM controller for the system
     controller c(ph1, ph2, reset, read, player, direction, row, col, row_addr, col_addr);
 
     // Instantiate the memory block for the system
-    memory m(ph2, reset, memwrite, etc);
+    gb_mem gameboard1(ph2, reset, write_enable, read_enable,
+                      row, col, write_data, read_data);
+
+    gb_mem gameboard2(ph2, reset, write_enable, read_enable,
+                      row, col, write_data, read_data);
+
+    ss_mem shipstorage1(ph2, reset, write_enable, read_enable,
+                        ship_addr, write_data, read_data);
+
+    ss_mem shipstorage2(ph2, reset, write_enable, read_enable,
+                        ship_addr, write_data, read_data);
 
     // Instantiate the SPI module
-    spi s(ph1, ph2, sclk, mosi);
+    spi s(sck, sdi, done, data, sdo);
 
 endmodule
 
-// SOME SETUP STARTED
+
+//------------------------------------------------
+// Authors: Jacob Nguyen and Michael Reeve
+// Date: March 19, 2016
+// VLSI Final Project: Battleship
+// Module: Controller (FSM)
+// Summary: The module for the controller/fsm
+// TO DO: Flesh out all states, write the logic for all states.
+//------------------------------------------------
 module controller(input logic ph1, ph2, reset, read, player, direction,
                   input logic [3:0] row, col,
                   output logic [2:0] row_addr,
@@ -74,110 +92,107 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
         case(state)
             INITIAL_START:
                 begin
-                    row_addr <= 3'b000;
-                    col_addr <= 5'b00000;
+                    row_addr <= 4'b0000;
+                    col_addr <= 4'b0000;
                 end
             default:
                 begin
-                    row_addr <= 3'b000;
-                    col_addr <= 5'b00000;
+                    row_addr <= 4'b0000;
+                    col_addr <= 4'b0000;
                 end;
         endcase
     end
-
-
-endmodule
-
-// DEFINTIELY NEEDS WORK
-module memory(input ph2, reset, memwrite
-              output etc);
-
 endmodule
 
 
-// DEFINITELY NEEDS WORK, I JUST COPY PASTED MY OLD MODULE FROM MICROPS
-module spi(input logic clk, SCK, SSEL, MOSI, 
-           output logic MISO, byte_received,
-           output logic [7:0] byte_data_received);
+//------------------------------------------------
+// Authors: Jacob Nguyen and Michael Reeve
+// Date: March 19, 2016
+// VLSI Final Project: Battleship
+// Module: Game Board Memory
+// Summary: The module for the game board memory
+// TO DO: Change as required for the controller/fsm.
+//------------------------------------------------
+module gb_mem(input logic clk, reset, write_enable, read_enable,
+              input logic [1:0] row, col,
+              input logic [1:0] write_data,
+              output logic [1:0] read_data);
+    // write_data:
+    // 00 -> nothing, lights off
+    // 01 -> miss, blue light
+    // 10 -> hit, red light
+    // 11 -> ship, green light
 
-// ------------------------------------------------
-// Sample/Synchronize SPI signals (SCK, SSEL, MOSI) 
-// using the FPGA clock and shift registers
-// ------------------------------------------------
-
-    logic SCK_risingedge, SCK_fallingedge, SSEL_active, 
-          SSEL_startmessage, SSEL_endmessage, MOSI_data;
-    logic [1:0] shift_MOSI;
-    logic [2:0] shift_SCK, shift_SSEL;
-
-    // Synchronize SCK, SSEL, and MOSI using 
-    // two 3-bit shift reg and one 2-bit shift reg
+    // mem is 4 chunks x 4 chunks, 100 (256 max) places to store
+    // 2 bits per memory location
+    logic [1:0] mem[3:0][3:0];
     always_ff @(posedge clk) begin
-        shift_SCK <= {shift_SCK, SCK};
-        shift_SSEL <= {shift_SSEL, SSEL};
-        shift_MOSI <= {shift_MOSI[0], MOSI};
+        if (write_enable) mem[row][col] <= write_data;
+        if (read_enable) read_data <= mem[row][col];
+    // assign read_data = mem[row][col];
+    // this is read-after-write
+    // put read_data <= mem[address] in always_ff block
+    // for read before write
     end
 
-    always_comb begin
-        SCK_risingedge = (shift_SCK[2:1] == 2'b01); // SCK rising edge logic
-        SCK_fallingedge = (shift_SCK[2:1] == 2'b10); // SCK falling edge logic
-        SSEL_active = ~shift_SSEL[1];  // SSEL is active low
-        SSEL_startmessage = (shift_SSEL[2:1] == 2'b10); // msg starts @ falling edge
-        SSEL_endmessage = (shift_SSEL[2:1] == 2'b01);  // msg stops @ rising edge
-        MOSI_data = shift_MOSI[1];
+endmodule
+
+
+//------------------------------------------------
+// Authors: Jacob Nguyen and Michael Reeve
+// Date: March 19, 2016
+// VLSI Final Project: Battleship
+// Module: Ship Storage Memory
+// Summary: The module for the ship storage memory
+// TO DO: Change as required for the controller/fsm.
+//------------------------------------------------
+module ss_mem(input logic clk, reset, write_enable, read_enable,
+              input logic [2:0] ship_addr,
+              input logic [5:0] write_data,
+              output logic [5:0] read_data);
+    // write_data:
+
+    // mem is 3 chunks, 5 (8 max) places to store ship data
+    // 13 (16 max) bits per memory location
+    logic [4:0] mem[2:0];
+    always_ff @(posedge clk) begin
+        if (write_enable) mem[ship_addr] <= write_data;
+        if (read_enable) read_data <= mem[ship_addr];
     end
 
+endmodule
 
-// -------------------------------------------
-// Now receiving data from the SPI bus is easy
-// -------------------------------------------
+
+//------------------------------------------------
+// Authors: Jacob Nguyen and Michael Reeve
+// Date: March 19, 2016
+// VLSI Final Project: Battleship
+// Module: SPI
+// Summary: The module for spi, modified from the E155 version
+// TO DO: Change to match our controller/fsm.
+//------------------------------------------------
+module spi(input  logic sck, sdi, done,
+           input  logic [31:0] data,
+           output logic sdo);
+
+    logic        sdodelayed, wasdone;
+    logic [31:0] data_captured;
+               
+    // wait until done
+    // then apply 32 sclks to shift out data, starting with data[0]
+
+    always_ff @(posedge sck)
+        if (!wasdone)  data_captured <= data;
+        else           data_captured <= {data_captured[30:0], 1'b0}; 
+    end    
+    // sdo should change on the negative edge of sck
+    always_ff @(negedge sck) begin
+        wasdone <= done;
+        sdodelayed <= data_captured[30];
+    end
     
-    logic [2:0] bitcnt;
-
-    // Logic to receive data from MOSI
-    always_ff @(posedge clk) begin
-        // If the whole byte is received
-        byte_received <= SSEL_active && SCK_risingedge && (bitcnt == 3'b111);
-
-        // If chip select active, restart the bit count
-        if (~SSEL_active)
-            bitcnt <= 3'b000;
-        else
-            if (SCK_risingedge) begin
-                bitcnt <= bitcnt + 1'b1; // Count on SCK rising edge
-                // implement a shift-left register (since we receive the data MSB first)
-                byte_data_received <= {byte_data_received[6:0], MOSI_data};
-            end
-    end
-
-
-// -------------------------------------------
-// Finally the transmission part
-// -------------------------------------------
-
-    logic [7:0] byte_data_sent, cnt;
-
-    // Logic to transmit data through MISO
-    always_ff @(posedge clk) begin
-        if (SSEL_startmessage) begin
-            cnt <= cnt+8'h1;  // count the messages
-        end
-        if (SSEL_active) begin
-            if(SSEL_startmessage)
-                byte_data_sent <= cnt;  // first byte sent in a message is the message count
-            else
-            if (SCK_fallingedge) begin
-                if (bitcnt == 3'b000)
-                    byte_data_sent <= 8'h00;  // after that, we send 0s
-                else
-                    byte_data_sent <= {byte_data_sent[6:0], 1'b0};
-            end
-        end
-    end
-
-    assign MISO = byte_data_sent[7];  // send MSB first
-    // we assume that there is only one slave on the SPI bus
-    // so we don't bother with a tri-state buffer for MISO
-    // otherwise we would need to tri-state MISO when SSEL is inactive
-
+    // when done is first asserted, shift out msb before clock edge
+    assign sdo = (done & !wasdone) ? data[31] : sdodelayed;
 endmodule
+
+
