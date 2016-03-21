@@ -29,8 +29,9 @@ module battleship(input logic ph1, ph2, reset, read, player, direction,
 
     // Instantiate the FSM controller for the system
     controller c(ph1, ph2, reset, read, player, direction,
-                 row, col, row_addr[0], col_addr[0], row_addr[1], col_addr[1],
-                 write_data[1:0], read_data[1:0]);
+                 row, col, write_data[1:0], read_data[1:0],
+                 write_data_ss[1:0], read_data_ss[1:0],
+                 row_addr[1:0], col_addr[1:0], ship_addr[1:0]);
 
     // Instantiate the memory block for the system
     gb_mem gameboard1(ph2, reset, write_enable[0], read_enable[0],
@@ -39,11 +40,11 @@ module battleship(input logic ph1, ph2, reset, read, player, direction,
     gb_mem gameboard2(ph2, reset, write_enable[1], read_enable[1],
                       row_addr[1], col_addr[1], write_data[1], read_data[1]);
 
-    ss_mem shipstorage1(ph2, reset, write_enable, read_enable,
-                        ship_addr, write_data, read_data);
+    ss_mem shipstorage1(ph2, reset, write_enable_ss[0], read_enable_ss[0],
+                        ship_addr[0], write_data[0], read_data[0]);
 
-    ss_mem shipstorage2(ph2, reset, write_enable, read_enable,
-                        ship_addr, write_data, read_data);
+    ss_mem shipstorage2(ph2, reset, write_enable[1], read_enable[1],
+                        ship_addr[1], write_data[1], read_data[1]);
 
     // Instantiate the SPI module
     spi s(sck, sdi, done, data, sdo);
@@ -61,18 +62,18 @@ endmodule
 //------------------------------------------------
 module controller(input logic ph1, ph2, reset, read, player, direction,
                   input logic [3:0] row, col,
-                  input logic [1:0]
-                  output logic [3:0] row_addr[1:0],
-                  output logic [3:0] col_addr[1:0],
-                  input logic [3:0] write_data[1:0],
-                  input logic [3:0] read_data[1:0]);
+                  input logic [3:0] write_data[1:0], read_data[1:0],
+                  input logic [11:0] write_data_ss[1:0], read_data_ss[1:0],
+                  output logic [3:0] row_addr[1:0], col_addr[1:0],
+                  output logic [2:0] ship_addr[1:0]);
     
-    logic [4:0] state, nextstate;
     logic pos_valid, shot_valid, expected_player, finished_ship;
-    logic [2:0] ship_addr[1:0], size;
-    logic [2:0] ship_sizes[4:0];
-    logic [3:0] input_row, input_col;
     logic input_player, input_direction;
+    logic [2:0] size;
+    logic [2:0] ship_addr[1:0], ship_sizes[4:0];
+    logic [3:0] input_row, input_col;
+    logic [4:0] state, nextstate;
+
 
 
     // STATES
@@ -94,28 +95,30 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
     // nextstate logic
     always_comb
         case(state)
-            // Reset all values
+            // Reset/set all values as necessary
             INITIAL_START:
                 begin
                     nextstate <= LOAD_SHIP_DATA;
                 end
-            // Handle loading player inputs
+            // Load in player inputs and save them, reset some values
             LOAD_SHIP_DATA:
                 begin
                     if (read) nextstate <= CHECK_POS_VALID;
                     else      nextstate <= LOAD_SHIP_DATA;
                 end
-            // Handle loading ship based on prev data
+            // Check if ship placement would be out of bounds or not, set pos_valid
             CHECK_ON_BOARD:
                 begin
                     nextstate <= CHECK_ON_BOARD2;
                 end
+            // If pos_valid is set to 1 above, go to check cells. Else, rerun the inputs
             CHECK_ON_BOARD2:
                 begin
                     if (pos_valid) nextstate <= CHECK_CELLS;
                     else           nextstate <= LOAD_SHIP_DATA;
                 end
-            // State will handle setting ship data
+            // After checking all cells ship could be on, determine whether or not
+            // to set the ship there
             CHECK_CELLS:
                 begin
                     if (finished_ship)
@@ -125,6 +128,7 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
                     end
                     else           nextstate <= CHECK_CELLS;
                 end
+            // If above checks work correctly, place the ship on the board
             SET_SHIP_POS:
                 begin
                     if (~finished_ship)
