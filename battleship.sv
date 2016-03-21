@@ -17,17 +17,20 @@
 //------------------------------------------------
 module battleship(input logic ph1, ph2, reset, read, player, direction,
 	              input logic [3:0] row, col,
-                  output logic sclk, mosi);
+                  output logic sclk, sdo);
 
-    logic [1:0] write_enable, read_enable;
+    logic       write_enable[1:0], read_enable[1:0];
     logic [1:0] write_data[1:0], read_data[1:0];
     logic [3:0] row_addr[1:0]; // 10 rows required
     logic [3:0] col_addr[1:0]; // 10 columns required
+    logic        write_enable_ss[1:0], read_enable_ss[1:0];
+    logic [11:0] write_data_ss[1:0], read_data_ss[1:0];
 
 
     // Instantiate the FSM controller for the system
     controller c(ph1, ph2, reset, read, player, direction,
-                 row, col, row_addr[0], col_addr[0], row_addr[1], col_addr[1]);
+                 row, col, row_addr[0], col_addr[0], row_addr[1], col_addr[1],
+                 write_data[1:0], read_data[1:0]);
 
     // Instantiate the memory block for the system
     gb_mem gameboard1(ph2, reset, write_enable[0], read_enable[0],
@@ -58,26 +61,35 @@ endmodule
 //------------------------------------------------
 module controller(input logic ph1, ph2, reset, read, player, direction,
                   input logic [3:0] row, col,
-                  output logic [2:0] row_addr,
-                  output logic [4:0] col_addr);
+                  input logic [1:0]
+                  output logic [3:0] row_addr[1:0],
+                  output logic [3:0] col_addr[1:0],
+                  input logic [3:0] write_data[1:0],
+                  input logic [3:0] read_data[1:0]);
     
     logic [4:0] state, nextstate;
-    logic pos_valid, shot_valid;
-    logic [2:0] ships[1:0];
+    logic pos_valid, shot_valid, expected_player, finished_ship;
+    logic [2:0] ship_addr[1:0], size;
+    logic [2:0] ship_sizes[4:0];
+    logic [3:0] input_row, input_col;
+    logic input_player, input_direction;
+
 
     // STATES
-    parameter INITIAL_START     = 5'b00000;
-    parameter LOAD_SHIP_DATA    = 5'b00001;
-    parameter CHECK_POS_VALID   = 5'b00010;
-    parameter SET_SHIP_POS      = 5'b00011;
-    parameter GAME_START        = 5'b00100;
-    parameter LOAD_SHOT_DATA    = 5'b00101;
-    parameter CHECK_SHOT_VALID  = 5'b00110;
-    parameter CHECK_HIT_MISS    = 5'b00111;
-    parameter MARK_SHOT         = 5'b01000;
-    parameter CHECK_SUNK        = 5'b01001;
-    parameter CHECK_ALL_SUNK    = 5'b01010;
-    parameter GAME_OVER         = 5'b01011;
+    parameter INITIAL_START     = ;
+    parameter LOAD_SHIP_DATA    = ;
+    parameter CHECK_ON_BOARD    = ;
+    parameter CHECK_ON_BOARD2   = ;
+    parameter CHECK_CELLS       = ;
+    parameter SET_SHIP_POS      = ;
+    parameter GAME_START        = ;
+    parameter LOAD_SHOT_DATA    = ;
+    parameter CHECK_SHOT_VALID  = ;
+    parameter CHECK_HIT_MISS    = ;
+    parameter MARK_SHOT         = ;
+    parameter CHECK_SUNK        = ;
+    parameter CHECK_ALL_SUNK    = ;
+    parameter GAME_OVER         = ;
 
     // nextstate logic
     always_comb
@@ -94,20 +106,33 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
                     else      nextstate <= LOAD_SHIP_DATA;
                 end
             // Handle loading ship based on prev data
-            CHECK_POS_VALID:
+            CHECK_ON_BOARD:
                 begin
-                    nextstate <= CHECK_POS_VALID2;
+                    nextstate <= CHECK_ON_BOARD2;
+                end
+            CHECK_ON_BOARD2:
+                begin
+                    if (pos_valid) nextstate <= CHECK_CELLS;
+                    else           nextstate <= LOAD_SHIP_DATA;
                 end
             // State will handle setting ship data
-            CHECK_POS_VALID2:
+            CHECK_CELLS:
                 begin
-                    if (pos_valid) nextstate <= SET_SHIP_POS;
-                    else           nextstate <= LOAD_SHIP_DATA;
+                    if (finished_ship)
+                    begin
+                        if (pos_valid) nextstate <= SET_SHIP_POS;
+                        else           nextstate <= LOAD_SHIP_DATA;
+                    end
+                    else           nextstate <= CHECK_CELLS;
                 end
             SET_SHIP_POS:
                 begin
-                    if (ships[1] == 3'b100) nextstate <= GAME_START;
-                    else                    nextstate <= LOAD_SHIP_DATA 
+                    if (~finished_ship)
+                        begin
+                            if (ships_addr[1] == 3'b100) nextstate <= GAME_START;
+                            else                    nextstate <= LOAD_SHIP_DATA;
+                        end
+                    else                            nextstate <= SET_SHIP_POS;
                 end
             // Load other stuff; This is a transition state
             GAME_START:
@@ -145,8 +170,8 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
             // Check if all ships sunks
             CHECK_ALL_SUNK:
                 begin
-                    if (ships[0] == 3'b000) nextstate <= GAME_OVER
-                    else if (ships[1] == 3'b000) nextstate <= GAME_OVER
+                    if (ships_addr[0] == 3'b000) nextstate <= GAME_OVER
+                    else if (ships_addr[1] == 3'b000) nextstate <= GAME_OVER
                     nextstate <= LOAD_SHIP_DATA;
                 end
             // End the game, it is over!
@@ -163,35 +188,95 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
         case(state)
             INITIAL_START:
                 begin
-                    row_addr[player] <= 4'b0000;
-                    col_addr[player] <= 4'b0000;
-                    row_addr[~player] <= 4'b0000;
-                    col_addr[~player] <= 4'b0000;
+                    ship_sizes[0] <= 3'd5;
+                    ship_sizes[1] <= 3'd4;
+                    ship_sizes[2] <= 3'd3;
+                    ship_sizes[3] <= 3'd3;
+                    ship_sizes[4] <= 3'd2;
                 end
             LOAD_SHIP_DATA:
                 begin
-                    if (read)
-                        begin
-                            read_enable[player] <= 1'b1;
-                            read_enable[~player] <= 1'b0;
-                        end
-                    row_addr[player] <= row;
-                    col_addr[player] <= col;
-                    row_addr[~player] <= 4'b0000;
-                    col_addr[~player] <= 4'b0000;
-                end
-            CHECK_POS_VALID:
-                begin
-                    etc // FIX LATER
-                end
-            CHECK_POS_VALID2:
-                begin
+                    input_direction <= direction;
+                    input_player <= player;
+                    input_row <= row;
+                    input_col <= col;
+                    size <= 3'b0;
                     pos_valid <= 1'b0;
+                    finished_ship <= 1'b0;
+                end
+            CHECK_ON_BOARD:
+                begin
+                    size <= 3'd0;
+                    if (input_direction && input_row < 4'd10 && input_col < (10-ship_sizes[ships_addr[input_player]])) 
+                        begin
+                            pos_valid <= 1'b1;
+                            read_enable[input_player] <= 1'b1;
+                            row_addr[input_player] <= input_row;
+                            col_addr[input_player] <= input_col;
+                        end
+                    else if (~input_direction && input_col < 4'd10 && input_row < (10-ship_sizes[ships_addr[input_player]])) 
+                        begin
+                            pos_valid <= 1'b1;
+                            read_enable[input_player] <= 1'b1;
+                            row_addr[input_player] <= input_row;
+                            col_addr[input_player] <= input_col;
+                        end
+                    else pos_valid <= 1'b0;
+                end
+            CHECK_CELLS:
+                begin
+                    if (read_data[player] != 2'b00)
+                        begin
+                            pos_valid <= 1'b0;
+                            finished_ship <= 1'b1;
+                            size <= 3'b0;
+                        end
+                    else if (size == ship_sizes[ships_addr[player]])
+                        begin
+                            finished_ship <= 1'b1;
+                            size <= 3'b0;
+                            write_enable <= 1'b1;
+                            write_enable_ss <= 1'b1;
+                            row_addr[player] <= input_row;
+                            col_addr[player] <= input_col;
+                        end
+                    else
+                        begin
+                            size <= size + 1'b1;
+                            if (input_direction) // horizontal
+                                begin
+                                    row_addr[player] <= row_addr[player] + 1'b1;
+                                end
+                            else // vertical
+                                begin
+                                    col_addr[player] <= col_addr[player] + 1'b1;
+                                end
+                        end
                 end
             SET_SHIP_POS:
                 begin
-                    ships[player] <= ships[player] + 1'b1;
-                    write_data[player] <= {row, col, direction, ships[player], 3'b000};
+                    write_data_ss[player] <= {row, col, direction, ship_size[ships_addr[player]};
+                    write_enable_ss <= 1'b0;
+                    write_data[player] <= 2'b11;
+                    if (size == ship_sizes[ships_addr[player]] - 1'b1)
+                        begin
+                            finished_ship <= 1'b0;
+                            size <= 3'b0;
+                            write_enable <= 1'b0;
+                            write_enable_ss <= 1'b0;
+                        end
+                    else
+                        begin
+                            size <= size + 1'b1;
+                            if (input_direction) // horizontal
+                                begin
+                                    row_addr[player] <= row_addr[player] + 1'b1;
+                                end
+                            else // vertical
+                                begin
+                                    col_addr[player] <= col_addr[player] + 1'b1;
+                                end
+                        end     
                 end
             GAME_START:
                 begin
@@ -304,13 +389,13 @@ endmodule
 //------------------------------------------------
 module ss_mem(input logic clk, reset, write_enable, read_enable,
               input logic [2:0] ship_addr,
-              input logic [12:0] write_data,
-              output logic [12:0] read_data);
+              input logic [11:0] write_data,
+              output logic [11:0] read_data);
     // write_data:
 
     // mem is 5 chunks, 5 places to store ship data
     // 13 bits per memory location
-    logic [12:0] mem[4:0];
+    logic [11:0] mem[4:0];
     always_ff @(posedge clk) begin
         if (reset) mem <= 0; // THIS MIGHT BE A PROBLEM LATER
         if (write_enable) mem[ship_addr] <= write_data;
