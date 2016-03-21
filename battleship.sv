@@ -5,6 +5,7 @@
 // VLSI Final Project: Battleship
 //------------------------------------------------
 
+// TO DO: SPI, Player switching, win condition, testbench, proofread logic, comment heavily
 
 
 //------------------------------------------------
@@ -70,9 +71,10 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
     logic pos_valid, shot_valid, expected_player, finished_ship, hit;
     logic input_player, input_direction;
     logic [2:0] size;
-    logic [2:0] ship_addr[1:0], ship_sizes[4:0];
+    logic [2:0] ship_addr[1:0], ship_sizes[4:0], sunk_count[1:0], sunk_count_old[1:0];
     logic [3:0] input_row, input_col;
     logic [4:0] state, nextstate;
+
 
 
 
@@ -90,7 +92,7 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
     parameter ON_BOARD_SET2     = ;
     parameter ON_BOARD_CHECK2   = ;
     parameter CHECK_SHOT_VALID  = ;
-    parameter CHECK_hit    = ;
+    parameter CHECK_HIT         = ;
     parameter MARK_SHOT         = ;
     parameter CHECK_SUNK        = ;
     parameter CHECK_ALL_SUNK    = ;
@@ -194,16 +196,22 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
             // Check if a ship has sunk
             CHECK_SUNK:
                 begin
-                    nextstate <= LOAD_SHIP_DATA;
+                    if (ship_addr[~input_player] == 3'b100) nextstate <= CHECK_ALL_SUNK;
+                    else if (finished_ship) nextstate <= GET_SHIP_INFO;
+                    else nextstate <= CHECK_SUNK;
                 end
             // Check if all ships sunks
             CHECK_ALL_SUNK:
                 begin
-                    if (ships_addr[0] == 3'b000) nextstate <= GAME_OVER
-                    else if (ships_addr[1] == 3'b000) nextstate <= GAME_OVER
-                    nextstate <= LOAD_SHIP_DATA;
+                    if (sunk_count[0] == 3'b101) nextstate <= GAME_OVER
+                    else if (sunk_count[1] == 3'b101) nextstate <= GAME_OVER
+                    else nextstate <= COMPARE_SUNK;
                 end
             // End the game, it is over!
+            COMPARE_SUNK:
+                begin
+                    nextstate <= LOAD_SHOT_DATA
+                end
             GAME_OVER:
                 begin
                     nextstate <= GAME_OVER;
@@ -314,10 +322,6 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
                 end
             GAME_START:
                 begin
-                    row_addr[player] <= 4'b0000;
-                    col_addr[player] <= 4'b0000;
-                    row_addr[~player] <= 4'b0000;
-                    col_addr[~player] <= 4'b0000;
                     expected_player <= 1'b0;
                 end
             LOAD_SHOT_DATA:
@@ -348,17 +352,17 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
                 end
             CHECK_SHOT_VALID:
                 begin
-                    if (read_data[input_player] == 2'b00)
+                    if (read_data[~input_player] == 2'b00)
                         begin
                             shot_valid <= 1'b1;
                             hit <= 1'b0;
-                            write_enable[input_player] <= 1'b1;
+                            write_enable[~input_player] <= 1'b1;
                         end
-                    else if (read_data[input_player] == 2'b11)
+                    else if (read_data[~input_player] == 2'b11)
                         begin
                             shot_valid <= 1'b1;
                             hit <= 1'b1;
-                            write_enable[input_player] <= 1'b1;
+                            write_enable[~input_player] <= 1'b1;
                         end
                     else 
                         begin
@@ -369,43 +373,65 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
                 begin
                     if (hit) //Hit
                         begin
-                            write_data[input_player] <= 2'b10;
-                            write_enable[input_player] <= 1'b0;
+                            write_data[~input_player] <= 2'b10;
+                            write_enable[~input_player] <= 1'b0;
+                            ship_addr[~input_player] <= 3'b000;
+                            unsunk <= 1'b0;
+                            sunk_count_old[~input_player] <= sunk_count[~input_player];
+                            sunk_count[~input_player] <= 3'b000;
                         end
                     else 
                         begin
-                            write_data[input_player] <= 2'b01;
-                            write_enable[input_player] <= 1'b0;
+                            write_data[~input_player] <= 2'b01;
+                            write_enable[~input_player] <= 1'b0;
                             expected_player <= ~expected_player;
                         end
                 end
+            GET_SHIP_INFO:
+                begin
+                    {row_addr[~input_player], col_addr[~input_player], ship_dir, ship_len} = read_data_ss[~input_player];
+                end
             CHECK_SUNK:
                 begin
-                    row_addr[player] <= 4'b0000;
-                    col_addr[player] <= 4'b0000;
-                    row_addr[~player] <= 4'b0000;
-                    col_addr[~player] <= 4'b0000;
+                    if (read_data[input_player] == 2'b11) //if it is a ship
+                        begin
+                            unsunk <= 1'b1;
+                            finished_ship <= 1'b1;
+                            size <= 3'b0;
+                            ship_addr[~input_player] <= ship_addr[~input_player] + 1'b1;
+                        end
+                    else if (size == ship_sizes[ships_addr[input_player]]-1'b1)
+                        begin
+                            finished_ship <= 1'b1;
+                            size <= 3'b0;
+                            ship_addr[~input_player] <= ship_addr[~input_player] + 1'b1;
+                            sunk_count[~input_player] <= sunk_count[~input_player] + 1'b1;
+                        end
+                    else
+                        begin
+                            size <= size + 1'b1;
+                            if (ship_dir) // horizontal
+                                begin
+                                    row_addr[~input_player] <= row_addr[~input_player] + 1'b1;
+                                end
+                            else // vertical
+                                begin
+                                    col_addr[~input_player] <= col_addr[~input_player] + 1'b1;
+                                end
+                        end
                 end
             CHECK_ALL_SUNK:
                 begin
-                    row_addr[player] <= 4'b0000;
-                    col_addr[player] <= 4'b0000;
-                    row_addr[~player] <= 4'b0000;
-                    col_addr[~player] <= 4'b0000;
+                    if (sunk_count[~input_player] != sunk_count_old[~input_player]) sunk_ship <= 1'b1;
+                    else sunk_ship <= 1'b0;
                 end
             GAME_OVER:
                 begin
                     row_addr[player] <= 4'b0000;
-                    col_addr[player] <= 4'b0000;
-                    row_addr[~player] <= 4'b0000;
-                    col_addr[~player] <= 4'b0000;
                 end
             default:
                 begin
                     row_addr[player] <= 4'b0000;
-                    col_addr[player] <= 4'b0000;
-                    row_addr[~player] <= 4'b0000;
-                    col_addr[~player] <= 4'b0000;
                 end
         endcase
     end
