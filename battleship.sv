@@ -67,7 +67,7 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
                   output logic [3:0] row_addr[1:0], col_addr[1:0],
                   output logic [2:0] ship_addr[1:0]);
     
-    logic pos_valid, shot_valid, expected_player, finished_ship, hit_miss;
+    logic pos_valid, shot_valid, expected_player, finished_ship, hit;
     logic input_player, input_direction;
     logic [2:0] size;
     logic [2:0] ship_addr[1:0], ship_sizes[4:0];
@@ -90,7 +90,7 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
     parameter ON_BOARD_SET2     = ;
     parameter ON_BOARD_CHECK2   = ;
     parameter CHECK_SHOT_VALID  = ;
-    parameter CHECK_HIT_MISS    = ;
+    parameter CHECK_hit    = ;
     parameter MARK_SHOT         = ;
     parameter CHECK_SUNK        = ;
     parameter CHECK_ALL_SUNK    = ;
@@ -177,7 +177,7 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
             // Check if the shot is valid; IE shot in bounds, not shot already
             CHECK_SHOT_VALID:
                 begin
-                    nextstate <= CHECK_HIT_MISS;
+                    nextstate <= CHECK_hit;
                 end
             // Check if shot hits or misses a ship
             CHECK_SHOT_VALID2:
@@ -188,8 +188,8 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
             // Save shot, if hit go to LOAD_SHOT_DATA, else go to CHECK_SUNK
             MARK_SHOT:
                 begin
-                    if (new_shot) nextstate <= LOAD_SHOT_DATA;
-                    else          nextstate <= CHECK_SUNK;
+                    if (hit) nextstate <= CHECK_SUNK;
+                    else          nextstate <= LOAD_SHOT_DATA;
                 end
             // Check if a ship has sunk
             CHECK_SUNK:
@@ -351,12 +351,14 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
                     if (read_data[input_player] == 2'b00)
                         begin
                             shot_valid <= 1'b1;
-                            hit_miss <= 1'b0;
+                            hit <= 1'b0;
+                            write_enable[input_player] <= 1'b1;
                         end
                     else if (read_data[input_player] == 2'b11)
                         begin
                             shot_valid <= 1'b1;
-                            hit_miss <= 1'b1;
+                            hit <= 1'b1;
+                            write_enable[input_player] <= 1'b1;
                         end
                     else 
                         begin
@@ -365,7 +367,17 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
                 end
             MARK_SHOT:
                 begin
-                    
+                    if (hit) //Hit
+                        begin
+                            write_data[input_player] <= 2'b10;
+                            write_enable[input_player] <= 1'b0;
+                        end
+                    else 
+                        begin
+                            write_data[input_player] <= 2'b01;
+                            write_enable[input_player] <= 1'b0;
+                            expected_player <= ~expected_player;
+                        end
                 end
             CHECK_SUNK:
                 begin
