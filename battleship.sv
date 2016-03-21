@@ -67,7 +67,7 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
                   output logic [3:0] row_addr[1:0], col_addr[1:0],
                   output logic [2:0] ship_addr[1:0]);
     
-    logic pos_valid, shot_valid, expected_player, finished_ship;
+    logic pos_valid, shot_valid, expected_player, finished_ship, hit_miss;
     logic input_player, input_direction;
     logic [2:0] size;
     logic [2:0] ship_addr[1:0], ship_sizes[4:0];
@@ -79,12 +79,16 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
     // STATES
     parameter INITIAL_START     = ;
     parameter LOAD_SHIP_DATA    = ;
-    parameter CHECK_ON_BOARD    = ;
-    parameter CHECK_ON_BOARD2   = ;
+    parameter CHECK_PLAYER      = ;
+    parameter ON_BOARD_SET      = ;
+    parameter ON_BOARD_CHECK    = ;
     parameter CHECK_CELLS       = ;
     parameter SET_SHIP_POS      = ;
     parameter GAME_START        = ;
     parameter LOAD_SHOT_DATA    = ;
+    parameter CHECK_PLAYER2     = ;
+    parameter ON_BOARD_SET2     = ;
+    parameter ON_BOARD_CHECK2   = ;
     parameter CHECK_SHOT_VALID  = ;
     parameter CHECK_HIT_MISS    = ;
     parameter MARK_SHOT         = ;
@@ -103,16 +107,21 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
             // Load in player inputs and save them, reset some values
             LOAD_SHIP_DATA:
                 begin
-                    if (read) nextstate <= CHECK_POS_VALID;
+                    if (read) nextstate <= CHECK_PLAYER;
                     else      nextstate <= LOAD_SHIP_DATA;
                 end
-            // Check if ship placement would be out of bounds or not, set pos_valid
-            CHECK_ON_BOARD:
+            CHECK_PLAYER:
                 begin
-                    nextstate <= CHECK_ON_BOARD2;
+                    if (correct_player) nextstate <= ON_BOARD_SET;
+                    else                nextstate <= LOAD_SHIP_DATA;
+                end
+            // Check if ship placement would be out of bounds or not, set pos_valid
+            ON_BOARD_SET:
+                begin
+                    nextstate <= ON_BOARD_CHECK;
                 end
             // If pos_valid is set to 1 above, go to check cells. Else, rerun the inputs
-            CHECK_ON_BOARD2:
+            ON_BOARD_CHECK:
                 begin
                     if (pos_valid) nextstate <= CHECK_CELLS;
                     else           nextstate <= LOAD_SHIP_DATA;
@@ -146,19 +155,35 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
             // State will handle player inputs
             LOAD_SHOT_DATA:
                 begin
-                    if (read) nextstate <= CHECK_SHOT_VALID;
+                    if (read) nextstate <= CHECK_PLAYER2;
                     else      nextstate <= LOAD_SHOT_DATA;
+                end
+            CHECK_PLAYER2:
+                begin
+                    if (correct_player) nextstate <= ON_BOARD_SET2;
+                    else                nextstate <= LOAD_SHOT_DATA;
+                end
+            // Check if ship placement would be out of bounds or not, set pos_valid
+            ON_BOARD_SET2:
+                begin
+                    nextstate <= ON_BOARD_CHECK22;
+                end
+            // If pos_valid is set to 1 above, go to check cells. Else, rerun the inputs
+            ON_BOARD_CHECK2:
+                begin
+                    if (pos_valid) nextstate <= CHECK_SHOT_VALID;
+                    else           nextstate <= LOAD_SHIP_DATA;
                 end
             // Check if the shot is valid; IE shot in bounds, not shot already
             CHECK_SHOT_VALID:
                 begin
-                    if (shot_valid) nextstate <= MARK_SHOT;
-                    else            nextstate <= LOAD_SHIP_DATA;
+                    nextstate <= CHECK_HIT_MISS;
                 end
             // Check if shot hits or misses a ship
-            CHECK_HIT_MISS:
+            CHECK_SHOT_VALID2:
                 begin
-                    nextstate <= MARK_SHOT;
+                    if (shot_valid) nextstate <= MARK_SHOT;
+                    else            nextstate <= LOAD_SHOT_DATA;
                 end
             // Save shot, if hit go to LOAD_SHOT_DATA, else go to CHECK_SUNK
             MARK_SHOT:
@@ -197,6 +222,7 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
                     ship_sizes[2] <= 3'd3;
                     ship_sizes[3] <= 3'd3;
                     ship_sizes[4] <= 3'd2;
+                    expected_player <= 1'b0;
                 end
             LOAD_SHIP_DATA:
                 begin
@@ -207,6 +233,8 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
                     size <= 3'b0;
                     pos_valid <= 1'b0;
                     finished_ship <= 1'b0;
+                    if (input_player == expected_player) correct_player <= 1'b1;
+                    else correct_player <= 1'b0;
                 end
             CHECK_ON_BOARD:
                 begin
@@ -229,56 +257,58 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
                 end
             CHECK_CELLS:
                 begin
-                    if (read_data[player] != 2'b00)
+                    if (read_data[input_player] != 2'b00)
                         begin
                             pos_valid <= 1'b0;
                             finished_ship <= 1'b1;
                             size <= 3'b0;
                         end
-                    else if (size == ship_sizes[ships_addr[player]])
+                    else if (size == ship_sizes[ships_addr[input_player]])
                         begin
                             finished_ship <= 1'b1;
                             size <= 3'b0;
-                            write_enable <= 1'b1;
-                            write_enable_ss <= 1'b1;
-                            row_addr[player] <= input_row;
-                            col_addr[player] <= input_col;
+                            write_enable[input_player] <= 1'b1;
+                            write_enable_ss[input_player] <= 1'b1;
+                            row_addr[input_player] <= input_row;
+                            col_addr[input_player] <= input_col;
                         end
                     else
                         begin
                             size <= size + 1'b1;
                             if (input_direction) // horizontal
                                 begin
-                                    row_addr[player] <= row_addr[player] + 1'b1;
+                                    row_addr[input_player] <= row_addr[input_player] + 1'b1;
                                 end
                             else // vertical
                                 begin
-                                    col_addr[player] <= col_addr[player] + 1'b1;
+                                    col_addr[input_player] <= col_addr[input_player] + 1'b1;
                                 end
                         end
                 end
             SET_SHIP_POS:
                 begin
-                    write_data_ss[player] <= {row, col, direction, ship_size[ships_addr[player]};
-                    write_enable_ss <= 1'b0;
-                    write_data[player] <= 2'b11;
-                    if (size == ship_sizes[ships_addr[player]] - 1'b1)
+                    write_data_ss[input_player] <= {row, col, direction, ship_size[ships_addr[input_player]};
+                    write_enable_ss[input_player] <= 1'b0;
+                    write_data[input_player] <= 2'b11;
+                    if (size == ship_sizes[ships_addr[input_player]] - 1'b1)
                         begin
                             finished_ship <= 1'b0;
                             size <= 3'b0;
-                            write_enable <= 1'b0;
-                            write_enable_ss <= 1'b0;
+                            write_enable[input_player] <= 1'b0;
+                            write_enable_ss[input_player] <= 1'b0;
+                            ship_addr[input_player] <= ship_addr[input_player] + 1'b1;
+                            if (ship_addr[input_player] == 3'b100) expected_player <= 1'b1;
                         end
                     else
                         begin
                             size <= size + 1'b1;
                             if (input_direction) // horizontal
                                 begin
-                                    row_addr[player] <= row_addr[player] + 1'b1;
+                                    row_addr[input_player] <= row_addr[input_player] + 1'b1;
                                 end
                             else // vertical
                                 begin
-                                    col_addr[player] <= col_addr[player] + 1'b1;
+                                    col_addr[input_player] <= col_addr[input_player] + 1'b1;
                                 end
                         end     
                 end
@@ -288,33 +318,54 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
                     col_addr[player] <= 4'b0000;
                     row_addr[~player] <= 4'b0000;
                     col_addr[~player] <= 4'b0000;
+                    expected_player <= 1'b0;
                 end
             LOAD_SHOT_DATA:
-                    row_addr[player] <= 4'b0000;
-                    col_addr[player] <= 4'b0000;
-                    row_addr[~player] <= 4'b0000;
-                    col_addr[~player] <= 4'b0000;
+                    input_direction <= direction;
+                    input_player <= player;
+                    input_row <= row;
+                    input_col <= col;
+                    pos_valid <= 1'b0;
+                    finished_ship <= 1'b0;
+                    if (input_player == expected_player) correct_player <= 1'b1;
+                    else correct_player <= 1'b0;
+                end
+            CHECK_PLAYER2:
+                begin
+                    if(correct_player)
+                        begin
+                            row_addr[input_player] <= input_row;
+                            col_addr[input_player] <= input_col;
+                        end
+                end
+            ON_BOARD_SET2:
+                begin
+                    if (input_row < 3'd10 && input_col < 3'd10)
+                        begin
+                            pos_valid <= 1'b1;
+                        end
+                    else pos_valid <= 1'b0;
                 end
             CHECK_SHOT_VALID:
                 begin
-                    row_addr[player] <= 4'b0000;
-                    col_addr[player] <= 4'b0000;
-                    row_addr[~player] <= 4'b0000;
-                    col_addr[~player] <= 4'b0000;
-                end
-            CHECK_HIT_MISS:
-                begin
-                    row_addr[player] <= 4'b0000;
-                    col_addr[player] <= 4'b0000;
-                    row_addr[~player] <= 4'b0000;
-                    col_addr[~player] <= 4'b0000;
+                    if (read_data[input_player] == 2'b00)
+                        begin
+                            shot_valid <= 1'b1;
+                            hit_miss <= 1'b0;
+                        end
+                    else if (read_data[input_player] == 2'b11)
+                        begin
+                            shot_valid <= 1'b1;
+                            hit_miss <= 1'b1;
+                        end
+                    else 
+                        begin
+                            shot_valid <= 1'b0;
+                        end
                 end
             MARK_SHOT:
                 begin
-                    row_addr[player] <= 4'b0000;
-                    col_addr[player] <= 4'b0000;
-                    row_addr[~player] <= 4'b0000;
-                    col_addr[~player] <= 4'b0000;
+                    
                 end
             CHECK_SUNK:
                 begin
