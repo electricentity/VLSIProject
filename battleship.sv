@@ -18,7 +18,8 @@
 //------------------------------------------------
 module battleship(input logic ph1, ph2, reset, read, player, direction,
 	              input logic [3:0] row, col,
-                  output logic sclk, sdo);
+                  output logic [11:0] data_out,
+                  output logic data_ready);
 
     logic       write_enable[1:0];
     logic [1:0] write_data[1:0], read_data[1:0];
@@ -33,7 +34,8 @@ module battleship(input logic ph1, ph2, reset, read, player, direction,
                  row, col, write_data, read_data,
                  write_data_ss, read_data_ss,
                  row_addr, col_addr, ship_addr,
-                 write_enable, write_enable_ss);
+                 write_enable, write_enable_ss,
+                 data_ready, data_out);
 
     // Instantiate the memory block for the system
     gb_mem gameboard1(ph2, reset, write_enable[0],
@@ -49,7 +51,7 @@ module battleship(input logic ph1, ph2, reset, read, player, direction,
                         ship_addr[1], write_data_ss[1], read_data_ss[1]);
 
     // Instantiate the SPI module
-    spi s(sclk, sdi, done, data, sdo);
+    // spi s(sclk, sdi, done, data, sdo);
 
 endmodule
 
@@ -64,18 +66,20 @@ endmodule
 //------------------------------------------------
 module controller(input logic ph1, ph2, reset, read, player, direction,
                   input logic [3:0] row, col,
-                  input logic [3:0] write_data[1:0], read_data[1:0],
+                  input logic [1:0] write_data[1:0], read_data[1:0],
                   input logic [11:0] write_data_ss[1:0], read_data_ss[1:0],
                   output logic [3:0] row_addr[1:0], col_addr[1:0],
                   output logic [2:0] ship_addr[1:0]
-                  output logic write_enable[1:0], write_enable_ss[1:0]);
+                  output logic write_enable[1:0], write_enable_ss[1:0], data_ready,
+                  output logic [11:0] data_out);
     
     logic pos_valid, shot_valid, expected_player, finished_ship, hit, all_ships;
-    logic input_player, input_direction;
+    logic input_player, input_direction, data_player, data_sink;
+    logic [1:0] data_cell;
     logic [2:0] size; // counter
     logic [2:0] ship_addr[1:0], ship_sizes[4:0], sunk_count[1:0], sunk_count_old[1:0];
-    logic [3:0] input_row, input_col;
-    logic [4:0] state, nextstate;
+    logic [3:0] input_row, input_col, data_row, data_col;
+    logic [4:0] state, nextstate, spi_nextstate;
     // logic [2:0] ship_sizes[4:0] = {3'b101, 3'b100, 3'b011, 3'b011, 3'b010};
 
 
@@ -151,7 +155,11 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
                             if (all_ships) nextstate <= GAME_START;
                             else                         nextstate <= LOAD_SHIP_DATA;
                         end
-                    else                                 nextstate <= SET_SHIP_POS;
+                    else                                 
+                        begin
+                            nextstate <= DATA_SETUP;
+                            hold_nextstate <= SET_SHIP_POS;
+                        end
                 end
             // Load other stuff; This is a transition state. Reset any values
             GAME_START:
@@ -197,7 +205,11 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
             MARK_SHOT:
                 begin
                     if (hit) nextstate <= GET_SHIP_INFO;
-                    else     nextstate <= LOAD_SHOT_DATA;
+                    else     
+                        begin
+                             nextstate <= DATA_SETUP;
+                             hold_nextstate <= LOAD_SHOT_DATA;
+                        end
                 end
             // Get the info for the position of the next ship to check
             GET_SHIP_INFO:
@@ -210,20 +222,36 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
                     if (finished_ship)
                         begin 
                             if (all_ships) nextstate <= CHECK_ALL_SUNK;
-                            else                                    nextstate <= GET_SHIP_INFO;
+                            else           nextstate <= GET_SHIP_INFO;
                         end
-                    else                                            nextstate <= CHECK_SUNK;
+                    else                   nextstate <= CHECK_SUNK;
                 end
             // Check to see if all ships are sunk
             CHECK_ALL_SUNK:
                 begin
-                    if (sunk_count[~input_player] == 3'b101) nextstate <= GAME_OVER;
-                    else nextstate <= LOAD_SHOT_DATA;
+                    if (sunk_count[~input_player] == 3'b101) 
+                        begin
+                            nextstate <= DATA_SETUP;
+                            hold_nextstate <= GAME_OVER;
+                        end
+                    else 
+                        begin
+                            nextstate <= DATA_SETUP;
+                            hold_nextstate <= LOAD_SHOT_DATA;
+                        end
                 end
             // Game over, someone won
             GAME_OVER:
                 begin
                     nextstate <= GAME_OVER;
+                end
+            DATA_SETUP
+                begin
+                    nextstate <= DATA_SEND;
+                end
+            DATA_SEND
+                begin
+                    nextstate <= hold_nextstate;
                 end
             default: nextstate <= INITIAL_START;
         endcase
@@ -366,12 +394,14 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
                             shot_valid <= 1'b1;
                             hit <= 1'b0;
                             write_enable[~input_player] <= 1'b1;
+                            write_data[~input_player] <= 2'b01; //Mark the miss, disable writing, and switch players
                         end
                     else if (read_data[~input_player] == 2'b11)     // The cell is a ship
                         begin
                             shot_valid <= 1'b1;
                             hit <= 1'b1;
                             write_enable[~input_player] <= 1'b1;
+                            write_data[~input_player] <= 2'b10;    //Mark the hit and disable writing
                         end
                     else                                    //The cell has already be shot at
                         begin
@@ -383,7 +413,6 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
                     expected_player <= ~expected_player;
                     if (hit) //Hit
                         begin
-                            write_data[~input_player] <= 2'b10;    //Mark the hit and disable writing
                             write_enable[~input_player] <= 1'b0;
                             ship_addr[~input_player] <= 3'b000;    //Set up variables for checking if ships are sunk
                             unsunk <= 1'b0;             
@@ -392,8 +421,12 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
                         end
                     else        //Miss
                         begin     
-                            write_data[~input_player] <= 2'b01; //Mark the miss, disable writing, and switch players
                             write_enable[~input_player] <= 1'b0;
+                            data_cell = 2'b01;
+                            data_row = row_addr[~input_player];
+                            data_col = col_addr[~input_player];
+                            data_player = ~input_player;
+                            data_sink = 1'b0;
                         end
                 end
             GET_SHIP_INFO:
@@ -444,13 +477,43 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
                 end
             CHECK_ALL_SUNK:
                 begin
-                    if (sunk_count[~input_player] != sunk_count_old[~input_player]) sunk_ship <= 1'b1;
-                    else sunk_ship <= 1'b0;
+                    if (sunk_count[~input_player] != sunk_count_old[~input_player]) 
+                        begin
+                            sunk_ship <= 1'b1;
+                            data_cell = 2'b10;
+                            data_row = row_addr[~input_player];
+                            data_col = col_addr[~input_player];
+                            data_player = ~input_player;
+                            data_sink = 1'b1;
+                        end
+                    else
+                        begin
+                            sunk_ship <= 1'b0;
+                            data_cell = 2'b10;
+                            data_row = row_addr[~input_player];
+                            data_col = col_addr[~input_player];
+                            data_player = ~input_player;
+                            data_sink = 1'b0;
+                        end
                 end
             GAME_OVER:
                 begin
                     row_addr[player] <= 4'b0000;
+                    data_cell = 2'b01;
+                    data_row = 4'b1111;
+                    data_col = 4'b1111;
+                    data_player = input_player;  //This player won
+                    data_sink = 1'b0;
                 end
+            DATA_SETUP
+                begin
+                    data_out <= {data_cell, data_row, data_col, data_player, data_sink};
+                    data_ready <= 1'b1;
+                end
+            DATA_SEND
+                begin
+                    data_ready <= 1'b0;
+                end           
             default:
                 begin
                     row_addr[player] <= 4'b0000;
@@ -519,7 +582,7 @@ module ss_mem(input logic clk, reset, write_enable,
 
 endmodule
 
-
+/*
 //------------------------------------------------
 // Authors: Jacob Nguyen and Michael Reeve
 // Date: March 19, 2016
@@ -552,4 +615,5 @@ module spi(input  logic sck, done,
     assign sdo = (done & !wasdone) ? data[11] : sdodelayed;
 endmodule
 
+*/
 
