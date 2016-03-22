@@ -5,7 +5,7 @@
 // VLSI Final Project: Battleship
 //------------------------------------------------
 
-// TO DO: SPI, Player switching, win condition, testbench, proofread logic, comment heavily
+// TO DO: testbench, proofread logic, comment heavily, Get comb/seq logic working
 
 
 //------------------------------------------------
@@ -119,33 +119,32 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
                 // Reset/set all values as necessary
                 INITIAL_START:
                     begin
-                        nextstate <= LOAD_SHIP_DATA;
+                        nextstate = LOAD_SHIP_DATA;
                     end
                 // Load in player inputs and save them, reset some values, set correct_player
                 LOAD_SHIP_DATA:
                     begin
-                        if (read) nextstate <= CHECK_PLAYER;
-                        else      nextstate <= LOAD_SHIP_DATA;
+                        if (read) nextstate = CHECK_PLAYER;
+                        else      nextstate = LOAD_SHIP_DATA;
                     end
                 // Check that the correct player in inputting
                 CHECK_PLAYER:
                     begin
-                        if (correct_player) nextstate <= ON_BOARD_SET;
-                        else                nextstate <= LOAD_SHIP_DATA;
+                        if (correct_player) nextstate = ON_BOARD_SET;
+                        else                nextstate = LOAD_SHIP_DATA;
                     end
                 // Check if ship placement would be out of bounds or not, set pos_valid
                 ON_BOARD_SET:
                     begin
-                        nextstate <= ON_BOARD_CHECK;
+                        nextstate = ON_BOARD_CHECK;
                     end
                 // If pos_valid is set to 1 above, go to check cells. Else, get new inputs
                 ON_BOARD_CHECK:
                     begin
-                        if (pos_valid) nextstate <= CHECK_CELLS;
+                        if (pos_valid) nextstate = CHECK_CELLS;
                         else
                             begin
-                                       hold_nextstate <= LOAD_SHIP_DATA;
-                                       nextstate <= DATA_SETUP;
+                                       nextstate = DATA_SETUP;
                             end
                     end
                 // After checking all cells ship could be on, determine whether or not
@@ -154,14 +153,13 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
                     begin
                         if (finished_ship)
                             begin
-                                if (pos_valid) nextstate <= SET_SHIP_POS;
+                                if (pos_valid) nextstate = SET_SHIP_POS;
                                 else           
                                     begin
-                                               hold_nextstate <= LOAD_SHIP_DATA;
-                                               nextstate <= DATA_SETUP;
+                                               nextstate = DATA_SETUP;
                                     end
                             end
-                        else                   nextstate <= CHECK_CELLS;
+                        else                   nextstate = CHECK_CELLS;
                     end
                 // If above checks work correctly, place the ship on the board
                 // Change expected inputs to next ship or next player accordingly
@@ -169,120 +167,166 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
                     begin
                         if (~finished_ship)
                             begin
-                                if (all_ships) nextstate <= GAME_START;
-                                else                         nextstate <= LOAD_SHIP_DATA;
+                                if (all_ships) nextstate = GAME_START;
+                                else                         nextstate = LOAD_SHIP_DATA;
                             end
                         else                                 
                             begin
-                                nextstate <= DATA_SETUP;
-                                hold_nextstate <= SET_SHIP_POS;
+                                nextstate = DATA_SETUP;
                             end
                     end
                 // Load other stuff; This is a transition state. Reset any values
                 GAME_START:
                     begin
-                        nextstate <= LOAD_SHOT_DATA;
+                        nextstate = LOAD_SHOT_DATA;
                     end
                 // State will handle player inputs, set correct_player
                 LOAD_SHOT_DATA:
                     begin
-                        if (read) nextstate <= CHECK_PLAYER2;
-                        else      nextstate <= LOAD_SHOT_DATA;
+                        if (read) nextstate = CHECK_PLAYER2;
+                        else      nextstate = LOAD_SHOT_DATA;
                     end
                 // If the player is correct check the board, otherwise ask for new inputs
                 CHECK_PLAYER2:
                     begin
-                        if (correct_player) nextstate <= ON_BOARD_SET2;
+                        if (correct_player) nextstate = ON_BOARD_SET2;
                         else 
                             begin
-                                            hold_nextstate <= LOAD_SHIP_DATA;
-                                            nextstate <= DATA_SETUP;
+                                            nextstate = DATA_SETUP;
                             end
                     end
                 // Check if ship placement would be out of bounds or not, set pos_valid
                 ON_BOARD_SET2:
                     begin
-                        nextstate <= ON_BOARD_CHECK2;
+                        nextstate = ON_BOARD_CHECK2;
                     end
                 // If pos_valid is set to 1 above, go to check cells. Else, rerun the inputs
                 ON_BOARD_CHECK2:
                     begin
-                        if (pos_valid) nextstate <= CHECK_SHOT_VALID;
+                        if (pos_valid) nextstate = CHECK_SHOT_VALID;
                         else          
                             begin
-                                       hold_nextstate <= LOAD_SHIP_DATA;
-                                       nextstate <= DATA_SETUP;
+                                       nextstate = DATA_SETUP;
                             end
                     end
                 // Check if the shot is valid; IE shot in bounds, not shot already, set shot_valid
                 // Also set hit and enable writing to desired board
                 CHECK_SHOT_VALID:
                     begin
-                        nextstate <= CHECK_SHOT_VALID2;
+                        nextstate = CHECK_SHOT_VALID2;
                     end
                 // Check shot_valid and move on or ask for new inputs 
                 CHECK_SHOT_VALID2:
                     begin
-                        if (shot_valid) nextstate <= MARK_SHOT;
+                        if (shot_valid) nextstate = MARK_SHOT;
                         else
                             begin
-                                        hold_nextstate <= LOAD_SHIP_DATA;
-                                        nextstate <= DATA_SETUP;
+                                        nextstate = DATA_SETUP;
                             end
                     end
                 // Save shot, if hit go to CHECK_SUNK, else go to LOAD_SHOT_DATA
                 MARK_SHOT:
                     begin
-                        if (hit) nextstate <= GET_SHIP_INFO;
+                        if (hit) nextstate = GET_SHIP_INFO;
                         else     
                             begin
-                                 nextstate <= DATA_SETUP;
-                                 hold_nextstate <= LOAD_SHOT_DATA;
+                                 nextstate = DATA_SETUP;
                             end
                     end
                 // Get the info for the position of the next ship to check
                 GET_SHIP_INFO:
                     begin
-                        nextstate <= CHECK_SUNK;
+                        nextstate = CHECK_SUNK;
                     end
                 // Check if the ship is sunk or not and set up for next ship
                 CHECK_SUNK:
                     begin
                         if (finished_ship)
                             begin 
-                                if (all_ships) nextstate <= CHECK_ALL_SUNK;
-                                else           nextstate <= GET_SHIP_INFO;
+                                if (all_ships) nextstate = CHECK_ALL_SUNK;
+                                else           nextstate = GET_SHIP_INFO;
                             end
-                        else                   nextstate <= CHECK_SUNK;
+                        else                   nextstate = CHECK_SUNK;
                     end
                 // Check to see if all ships are sunk
                 CHECK_ALL_SUNK:
                     begin
                         if (sunk_count[~input_player] == 3'b101) 
                             begin
-                                nextstate <= DATA_SETUP;
-                                hold_nextstate <= GAME_OVER;
+                                nextstate = DATA_SETUP;
                             end
                         else 
                             begin
-                                nextstate <= DATA_SETUP;
-                                hold_nextstate <= LOAD_SHOT_DATA;
+                                nextstate = DATA_SETUP;
                             end
                     end
                 // Game over, someone won
                 GAME_OVER:
                     begin
-                        nextstate <= GAME_OVER;
+                        nextstate = GAME_OVER;
                     end
                 DATA_SETUP:
                     begin
-                        nextstate <= DATA_SEND;
+                        nextstate = DATA_SEND;
                     end
                 DATA_SEND:
                     begin
-                        nextstate <= hold_nextstate;
+                        nextstate = hold_nextstate;
                     end
-                default: nextstate <= INITIAL_START;
+                default: nextstate = INITIAL_START;
+            endcase
+        end
+
+    // nextstate logic
+    always_comb
+        begin
+            case(state)
+                // If pos_valid is set to 1 above, go to check cells. Else, get new inputs
+                ON_BOARD_CHECK:
+                    begin
+                        hold_nextstate = LOAD_SHIP_DATA;
+                    end
+                // After checking all cells ship could be on, determine whether or not
+                // to set the ship there (are there any collisions with other ships)
+                CHECK_CELLS:
+                    begin
+                        hold_nextstate = LOAD_SHIP_DATA;
+                    end
+                // If above checks work correctly, place the ship on the board
+                // Change expected inputs to next ship or next player accordingly
+                SET_SHIP_POS:
+                    begin
+                        hold_nextstate = SET_SHIP_POS;
+                    end
+                CHECK_PLAYER2:
+                    begin
+                        hold_nextstate = LOAD_SHIP_DATA;
+                    end
+                // If pos_valid is set to 1 above, go to check cells. Else, rerun the inputs
+                ON_BOARD_CHECK2:
+                    begin
+                        hold_nextstate = LOAD_SHIP_DATA;
+                    end
+                // Check shot_valid and move on or ask for new inputs 
+                CHECK_SHOT_VALID2:
+                    begin
+                        hold_nextstate = LOAD_SHIP_DATA;
+                    end
+                // Save shot, if hit go to CHECK_SUNK, else go to LOAD_SHOT_DATA
+                MARK_SHOT:
+                    begin
+                                 hold_nextstate = LOAD_SHOT_DATA;
+                    end
+                CHECK_ALL_SUNK:
+                    begin
+                        if (sunk_count[~input_player] == 3'b101) 
+                            begin
+                                hold_nextstate = GAME_OVER;
+                            end
+                        else hold_nextstate = LOAD_SHOT_DATA;
+                    end
+                default:
+                    hold_nextstate = INITIAL_START;
             endcase
         end
 
@@ -293,256 +337,256 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
                 INITIAL_START:
                     begin
                     /*
-                        ship_sizes[0] <= 3'd5;
-                        ship_sizes[1] <= 3'd4;
-                        ship_sizes[2] <= 3'd3;
-                        ship_sizes[3] <= 3'd3;
-                        ship_sizes[4] <= 3'd2; */
-                        expected_player <= 1'b0; //Start with player 1
+                        ship_sizes[0] = 3'd5;
+                        ship_sizes[1] = 3'd4;
+                        ship_sizes[2] = 3'd3;
+                        ship_sizes[3] = 3'd3;
+                        ship_sizes[4] = 3'd2; */
+                        expected_player = 1'b0; //Start with player 1
                     end
                 LOAD_SHIP_DATA:
                     begin
-                        input_direction <= direction; //Read in inputs every clock cycle
-                        input_player <= player;
-                        input_row <= row;
-                        input_col <= col;
-                        size <= 3'b0;                 //Reset bools and counters
-                        pos_valid <= 1'b0;
-                        finished_ship <= 1'b0;
-                        all_ships <= 1'b0;
-                        if (input_player == expected_player) correct_player <= 1'b1;
-                        else correct_player <= 1'b0;  //Set the correct_player variable
+                        input_direction = direction; //Read in inputs every clock cycle
+                        input_player = player;
+                        input_row = row;
+                        input_col = col;
+                        size = 3'b0;                 //Reset bools and counters
+                        pos_valid = 1'b0;
+                        finished_ship = 1'b0;
+                        all_ships = 1'b0;
+                        if (input_player == expected_player) correct_player = 1'b1;
+                        else correct_player = 1'b0;  //Set the correct_player variable
                     end
                 ON_BOARD_SET:
                     begin       //Check that it fits if it is horizontal
                         if (input_direction && input_row < 4'd10 && input_col < (10-ship_sizes[ship_addr[input_player]])) 
                             begin
-                                pos_valid <= 1'b1;
-                                row_addr[input_player] <= input_row;
-                                col_addr[input_player] <= input_col;
+                                pos_valid = 1'b1;
+                                row_addr[input_player] = input_row;
+                                col_addr[input_player] = input_col;
                             end  //Check that if fits if it is vertical
                         else if (~input_direction && input_col < 4'd10 && input_row < (10-ship_sizes[ship_addr[input_player]])) 
                             begin
-                                pos_valid <= 1'b1;
-                                row_addr[input_player] <= input_row;
-                                col_addr[input_player] <= input_col;
+                                pos_valid = 1'b1;
+                                row_addr[input_player] = input_row;
+                                col_addr[input_player] = input_col;
                             end
                         else 
                             begin
-                                pos_valid <= 1'b0; //It doesn't fits        
-                                data_cell <= 2'b01;
-                                data_row <= row_addr[~input_player];        //%%%%%%%%%%%%%%%%%%%%%%%% NEED TO UPDATE OUTPUT
-                                data_col <= col_addr[~input_player];
-                                data_player <= ~input_player;
-                                data_sink <= 1'b0;
+                                pos_valid = 1'b0; //It doesn't fits        
+                                data_cell = 2'b01;
+                                data_row = row_addr[~input_player];        //%%%%%%%%%%%%%%%%%%%%%%%% NEED TO UPDATE OUTPUT
+                                data_col = col_addr[~input_player];
+                                data_player = ~input_player;
+                                data_sink = 1'b0;
                             end
                     end
                 CHECK_CELLS:
                     begin   
                         if (read_data[input_player] != 2'b00) //The cell is not empty
                             begin                             // Can stop checking
-                                pos_valid <= 1'b0;            // Reset variables
-                                finished_ship <= 1'b1;
-                                data_cell <= 2'b01;     //%%%%%%%%%%%%%%%%%%%%%%%% NEED TO UPDATE OUTPUT
-                                data_row <= row_addr[~input_player];
-                                data_col <= col_addr[~input_player];
-                                data_player <= ~input_player;
-                                data_sink <= 1'b0;
+                                pos_valid = 1'b0;            // Reset variables
+                                finished_ship = 1'b1;
+                                data_cell = 2'b01;     //%%%%%%%%%%%%%%%%%%%%%%%% NEED TO UPDATE OUTPUT
+                                data_row = row_addr[~input_player];
+                                data_col = col_addr[~input_player];
+                                data_player = ~input_player;
+                                data_sink = 1'b0;
                             end
                         else if (size == ship_sizes[ship_addr[input_player]]) //Reached the end of the ship
                             begin
-                                size <= 3'b0; //Reset size for SET_SHIP_POS
-                                finished_ship <= 1'b1;      //The ship should be placed
-                                write_enable[input_player] <= 1'b1;
-                                write_enable_ss[input_player] <= 1'b1;
-                                write_data[input_player] <= 2'b11;
-                                write_data_ss[input_player] <= {row, col, direction, ship_sizes[ship_addr[input_player]]};
-                                row_addr[input_player] <= input_row; //Reset row and col after incrementing
-                                col_addr[input_player] <= input_col;
+                                size = 3'b0; //Reset size for SET_SHIP_POS
+                                finished_ship = 1'b1;      //The ship should be placed
+                                write_enable[input_player] = 1'b1;
+                                write_enable_ss[input_player] = 1'b1;
+                                write_data[input_player] = 2'b11;
+                                write_data_ss[input_player] = {row, col, direction, ship_sizes[ship_addr[input_player]]};
+                                row_addr[input_player] = input_row; //Reset row and col after incrementing
+                                col_addr[input_player] = input_col;
                             end
                         else
                             begin                       //Otherwise move on to the next cell of the ship
-                                size <= size + 1'b1;
+                                size = size + 1'b1;
                                 if (input_direction) // horizontal
                                     begin
-                                        col_addr[input_player] <= col_addr[input_player] + 1'b1;
+                                        col_addr[input_player] = col_addr[input_player] + 1'b1;
                                     end
                                 else // vertical
                                     begin
-                                        row_addr[input_player] <= row_addr[input_player] + 1'b1;
+                                        row_addr[input_player] = row_addr[input_player] + 1'b1;
                                     end
                             end
                     end
                 SET_SHIP_POS:
                     begin               //Write the ship info into Ship Storage
-                        write_enable_ss[input_player] <= 1'b0;  //Disable writing
-                        //write_data[input_player] <= 2'b11;      //Mark the cell as a ship
-                        data_cell <= 2'b11;   
-                        data_row <= row_addr[input_player];
-                        data_col <= col_addr[input_player];
-                        data_player <= input_player;
-                        data_sink <= 1'b0;
+                        write_enable_ss[input_player] = 1'b0;  //Disable writing
+                        //write_data[input_player] = 2'b11;      //Mark the cell as a ship
+                        data_cell = 2'b11;   
+                        data_row = row_addr[input_player];
+                        data_col = col_addr[input_player];
+                        data_player = input_player;
+                        data_sink = 1'b0;
                         if (size == ship_sizes[ship_addr[input_player]] - 1'b1) //Reached the end of the ship
                             begin
-                                finished_ship <= 1'b0;
-                                size <= 3'b0;
-                                write_enable[input_player] <= 1'b0;
-                                write_data[input_player] <= 2'b00;
+                                finished_ship = 1'b0;
+                                size = 3'b0;
+                                write_enable[input_player] = 1'b0;
+                                write_data[input_player] = 2'b00;
                                 if (ship_addr[input_player] == 3'b100) 
                                     begin
-                                        all_ships <= 1'b1;
-                                        expected_player <= 1'b1; //If all ships have been inputted
+                                        all_ships = 1'b1;
+                                        expected_player = 1'b1; //If all ships have been inputted
                                     end
-                                else ship_addr[input_player] <= ship_addr[input_player] + 1'b1;  //Move on to next ship
+                                else ship_addr[input_player] = ship_addr[input_player] + 1'b1;  //Move on to next ship
                             end                                                                 //Change to next player
                         else if (finished_ship)
                             begin                       //Not at the end of the ship, move on to next cell
-                                size <= size + 1'b1;
+                                size = size + 1'b1;
                                 if (input_direction) // horizontal
                                     begin
-                                        col_addr[input_player] <= col_addr[input_player] + 1'b1;
+                                        col_addr[input_player] = col_addr[input_player] + 1'b1;
                                     end
                                 else // vertical
                                     begin
-                                        row_addr[input_player] <= row_addr[input_player] + 1'b1;
+                                        row_addr[input_player] = row_addr[input_player] + 1'b1;
                                     end
                             end    
                     end
                 GAME_START:
                     begin
-                        expected_player <= 1'b0;        //Start with player 1
+                        expected_player = 1'b0;        //Start with player 1
                     end
                 LOAD_SHOT_DATA:
                     begin
-                        input_direction <= direction;      //Read inputs on clock edge
-                        input_player <= player;
-                        input_row <= row;
-                        input_col <= col;
-                        size <= 3'b0;
-                        shot_valid <= 1'b0;
-                        pos_valid <= 1'b0;
-                        finished_ship <= 1'b0;
-                        all_ships <= 1'b0;
-                        if (input_player == expected_player) correct_player <= 1'b1;    //Set correct_player
-                        else correct_player <= 1'b0;
+                        input_direction = direction;      //Read inputs on clock edge
+                        input_player = player;
+                        input_row = row;
+                        input_col = col;
+                        size = 3'b0;
+                        shot_valid = 1'b0;
+                        pos_valid = 1'b0;
+                        finished_ship = 1'b0;
+                        all_ships = 1'b0;
+                        if (input_player == expected_player) correct_player = 1'b1;    //Set correct_player
+                        else correct_player = 1'b0;
                     end
                 CHECK_PLAYER2:
                     begin
                         if (~correct_player) 
                             begin //%%%%%%%%%%%%%%%%%%%%%%%% NEED TO UPDATE OUTPUT                                
-                                data_cell <= 2'b01;
-                                data_row <= row_addr[~input_player];
-                                data_col <= col_addr[~input_player];
-                                data_player <= ~input_player;
-                                data_sink <= 1'b0;
+                                data_cell = 2'b01;
+                                data_row = row_addr[~input_player];
+                                data_col = col_addr[~input_player];
+                                data_player = ~input_player;
+                                data_sink = 1'b0;
                             end    
                     end
                 ON_BOARD_SET2:
                     begin
                         if (input_row < 3'd10 && input_col < 3'd10)     //Check if the desired cell is on the board
                             begin
-                                pos_valid <= 1'b1;
-                                row_addr[input_player] <= input_row;
-                                col_addr[input_player] <= input_col;
+                                pos_valid = 1'b1;
+                                row_addr[input_player] = input_row;
+                                col_addr[input_player] = input_col;
                             end
                         else 
                             begin //%%%%%%%%%%%%%%%%%%%%%%%% NEED TO UPDATE OUTPUT
-                                pos_valid <= 1'b0; //It doesn't fit
-                                data_cell <= 2'b01;
-                                data_row <= row_addr[~input_player];
-                                data_col <= col_addr[~input_player];
-                                data_player <= ~input_player;
-                                data_sink <= 1'b0;
+                                pos_valid = 1'b0; //It doesn't fit
+                                data_cell = 2'b01;
+                                data_row = row_addr[~input_player];
+                                data_col = col_addr[~input_player];
+                                data_player = ~input_player;
+                                data_sink = 1'b0;
                             end
                     end
                 CHECK_SHOT_VALID:
                     begin
                         if (read_data[~input_player] == 2'b00)      //The cell is empty
                             begin
-                                shot_valid <= 1'b1;
-                                hit <= 1'b0;
-                                write_enable[~input_player] <= 1'b1;
-                                write_data[~input_player] <= 2'b01; //Mark the miss, disable writing, and switch players
+                                shot_valid = 1'b1;
+                                hit = 1'b0;
+                                write_enable[~input_player] = 1'b1;
+                                write_data[~input_player] = 2'b01; //Mark the miss, disable writing, and switch players
                             end
                         else if (read_data[~input_player] == 2'b11)     // The cell is a ship
                             begin
-                                shot_valid <= 1'b1;
-                                hit <= 1'b1;
-                                write_enable[~input_player] <= 1'b1;
-                                write_data[~input_player] <= 2'b10;    //Mark the hit and disable writing
+                                shot_valid = 1'b1;
+                                hit = 1'b1;
+                                write_enable[~input_player] = 1'b1;
+                                write_data[~input_player] = 2'b10;    //Mark the hit and disable writing
                             end
                         else                                    //The cell has already be shot at
                             begin
-                                shot_valid <= 1'b0;
-                                data_cell <= 2'b01;     //%%%%%%%%%%%%%%%%%%%%%%%% NEED TO UPDATE OUTPUT
-                                data_row <= row_addr[~input_player];
-                                data_col <= col_addr[~input_player];
-                                data_player <= ~input_player;
-                                data_sink <= 1'b0;
+                                shot_valid = 1'b0;
+                                data_cell = 2'b01;     //%%%%%%%%%%%%%%%%%%%%%%%% NEED TO UPDATE OUTPUT
+                                data_row = row_addr[~input_player];
+                                data_col = col_addr[~input_player];
+                                data_player = ~input_player;
+                                data_sink = 1'b0;
                             end
                     end
                 MARK_SHOT:
                     begin
-                        expected_player <= ~expected_player;
+                        expected_player = ~expected_player;
                         if (hit) //Hit
                             begin
-                                write_enable[~input_player] <= 1'b0;
-                                ship_addr[~input_player] <= 3'b000;    //Set up variables for checking if ships are sunk           
-                                sunk_count_old[~input_player] <= sunk_count[~input_player];
-                                sunk_count[~input_player] <= 3'b000;
+                                write_enable[~input_player] = 1'b0;
+                                ship_addr[~input_player] = 3'b000;    //Set up variables for checking if ships are sunk           
+                                sunk_count_old[~input_player] = sunk_count[~input_player];
+                                sunk_count[~input_player] = 3'b000;
                             end
                         else        //Miss
                             begin     
-                                write_enable[~input_player] <= 1'b0;
-                                data_cell <= 2'b01;
-                                data_row <= row_addr[~input_player];
-                                data_col <= col_addr[~input_player];
-                                data_player <= ~input_player;
-                                data_sink <= 1'b0;
+                                write_enable[~input_player] = 1'b0;
+                                data_cell = 2'b01;
+                                data_row = row_addr[~input_player];
+                                data_col = col_addr[~input_player];
+                                data_player = ~input_player;
+                                data_sink = 1'b0;
                             end
                     end
                 GET_SHIP_INFO:
                     begin           //Get the info for the ship from Ship Storage
-                        all_ships <= 1'b0;
-                        finished_ship <= 1'b0;
-                        write_data[~input_player] <= 2'b00;
-                        write_enable[~input_player] <= 1'b0;
+                        all_ships = 1'b0;
+                        finished_ship = 1'b0;
+                        write_data[~input_player] = 2'b00;
+                        write_enable[~input_player] = 1'b0;
                         {row_addr[~input_player], col_addr[~input_player], ship_dir, ship_len} = read_data_ss[~input_player];
                     end
                 CHECK_SUNK:
                     begin
                         if (read_data[~input_player] == 2'b11) //if it is a ship
                             begin
-                                finished_ship <= 1'b1;
-                                size <= 3'b0;
+                                finished_ship = 1'b1;
+                                size = 3'b0;
                                 if (ship_addr[~input_player] == 3'b100) 
                                     begin
-                                        all_ships <= 1'b1;
+                                        all_ships = 1'b1;
                                     end
-                                else ship_addr[~input_player] <= ship_addr[~input_player] + 1'b1;
+                                else ship_addr[~input_player] = ship_addr[~input_player] + 1'b1;
                             end
                         else if (size == ship_len-1'b1)
                             begin
-                                finished_ship <= 1'b1;
-                                size <= 3'b0;
-                                ship_addr[~input_player] <= ship_addr[~input_player] + 1'b1;
-                                sunk_count[~input_player] <= sunk_count[~input_player] + 1'b1;
+                                finished_ship = 1'b1;
+                                size = 3'b0;
+                                ship_addr[~input_player] = ship_addr[~input_player] + 1'b1;
+                                sunk_count[~input_player] = sunk_count[~input_player] + 1'b1;
                                 if (ship_addr[~input_player] == 3'b100) 
                                     begin
-                                        all_ships <= 1'b1;
+                                        all_ships = 1'b1;
                                     end
-                                else ship_addr[~input_player] <= ship_addr[~input_player] + 1'b1;
+                                else ship_addr[~input_player] = ship_addr[~input_player] + 1'b1;
                             end
                         else if (~finished_ship)
                             begin
-                                size <= size + 1'b1;
+                                size = size + 1'b1;
                                 if (ship_dir) // horizontal
                                     begin
-                                        col_addr[~input_player] <= col_addr[~input_player] + 1'b1;
+                                        col_addr[~input_player] = col_addr[~input_player] + 1'b1;
                                     end
                                 else // vertical
                                     begin
-                                        row_addr[~input_player] <= row_addr[~input_player] + 1'b1;
+                                        row_addr[~input_player] = row_addr[~input_player] + 1'b1;
                                     end
                             end
                     end
@@ -550,42 +594,42 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
                     begin
                         if (sunk_count[~input_player] != sunk_count_old[~input_player]) 
                             begin
-                                data_cell <= 2'b10;
-                                data_row <= row_addr[~input_player];
-                                data_col <= col_addr[~input_player];
-                                data_player <= ~input_player;
-                                data_sink <= 1'b1;
+                                data_cell = 2'b10;
+                                data_row = row_addr[~input_player];
+                                data_col = col_addr[~input_player];
+                                data_player = ~input_player;
+                                data_sink = 1'b1;
                             end
                         else
                             begin
-                                data_cell <= 2'b10;
-                                data_row <= row_addr[~input_player];
-                                data_col <= col_addr[~input_player];
-                                data_player <= ~input_player;
-                                data_sink <= 1'b0;
+                                data_cell = 2'b10;
+                                data_row = row_addr[~input_player];
+                                data_col = col_addr[~input_player];
+                                data_player = ~input_player;
+                                data_sink = 1'b0;
                             end
                     end
                 GAME_OVER:
                     begin
-                        row_addr[player] <= 4'b0000;
-                        data_cell <= 2'b01;
-                        data_row <= 4'b1111;
-                        data_col <= 4'b1111;
-                        data_player <= input_player;  //This player won
-                        data_sink <= 1'b0;
+                        row_addr[player] = 4'b0000;
+                        data_cell = 2'b01;
+                        data_row = 4'b1111;
+                        data_col = 4'b1111;
+                        data_player = input_player;  //This player won
+                        data_sink = 1'b0;
                     end
                 DATA_SETUP:
                     begin
-                        data_out <= {data_cell, data_row, data_col, data_player, data_sink};
-                        data_ready <= 1'b1;
+                        data_out = {data_cell, data_row, data_col, data_player, data_sink};
+                        data_ready = 1'b1;
                     end
                 DATA_SEND:
                     begin
-                        data_ready <= 1'b0;
+                        data_ready = 1'b0;
                     end           
                 default:
                     begin
-                        row_addr[player] <= 4'b0000;
+                        row_addr[player] = 4'b0000;
                     end
             endcase
         end
