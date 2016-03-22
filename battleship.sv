@@ -78,13 +78,13 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
     
     logic pos_valid, shot_valid, expected_player, finished_ship, hit, all_ships;
     logic input_player, input_direction, data_player, data_sink, correct_player;
-    logic ship_dir, unsunk;
+    logic ship_dir;
     logic [1:0] data_cell;
     logic [2:0] size, ship_len; // counter
-    logic [2:0] ship_sizes[4:0], sunk_count[1:0], sunk_count_old[1:0];
+    logic [2:0] sunk_count[1:0], sunk_count_old[1:0];
     logic [3:0] input_row, input_col, data_row, data_col;
     logic [4:0] state, nextstate, hold_nextstate;
-    // logic [2:0] ship_sizes[4:0] = {3'b101, 3'b100, 3'b011, 3'b011, 3'b010};
+    logic [2:0] ship_sizes[4:0] = '{3'b101, 3'b100, 3'b011, 3'b011, 3'b010};
 
     flopenr #5 statereg(ph1, ph2, reset, 1'b1, nextstate, state);
 
@@ -142,7 +142,11 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
                 ON_BOARD_CHECK:
                     begin
                         if (pos_valid) nextstate <= CHECK_CELLS;
-                        else           nextstate <= LOAD_SHIP_DATA;
+                        else
+                            begin
+                                       hold_nextstate <= LOAD_SHIP_DATA;
+                                       nextstate <= DATA_SETUP;
+                            end
                     end
                 // After checking all cells ship could be on, determine whether or not
                 // to set the ship there (are there any collisions with other ships)
@@ -151,7 +155,11 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
                         if (finished_ship)
                             begin
                                 if (pos_valid) nextstate <= SET_SHIP_POS;
-                                else           nextstate <= LOAD_SHIP_DATA;
+                                else           
+                                    begin
+                                               hold_nextstate <= LOAD_SHIP_DATA;
+                                               nextstate <= DATA_SETUP;
+                                    end
                             end
                         else                   nextstate <= CHECK_CELLS;
                     end
@@ -185,7 +193,11 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
                 CHECK_PLAYER2:
                     begin
                         if (correct_player) nextstate <= ON_BOARD_SET2;
-                        else                nextstate <= LOAD_SHOT_DATA;
+                        else 
+                            begin
+                                            hold_nextstate <= LOAD_SHIP_DATA;
+                                            nextstate <= DATA_SETUP;
+                            end
                     end
                 // Check if ship placement would be out of bounds or not, set pos_valid
                 ON_BOARD_SET2:
@@ -196,7 +208,11 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
                 ON_BOARD_CHECK2:
                     begin
                         if (pos_valid) nextstate <= CHECK_SHOT_VALID;
-                        else           nextstate <= LOAD_SHOT_DATA;
+                        else          
+                            begin
+                                       hold_nextstate <= LOAD_SHIP_DATA;
+                                       nextstate <= DATA_SETUP;
+                            end
                     end
                 // Check if the shot is valid; IE shot in bounds, not shot already, set shot_valid
                 // Also set hit and enable writing to desired board
@@ -208,7 +224,11 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
                 CHECK_SHOT_VALID2:
                     begin
                         if (shot_valid) nextstate <= MARK_SHOT;
-                        else            nextstate <= LOAD_SHOT_DATA;
+                        else
+                            begin
+                                        hold_nextstate <= LOAD_SHIP_DATA;
+                                        nextstate <= DATA_SETUP;
+                            end
                     end
                 // Save shot, if hit go to CHECK_SUNK, else go to LOAD_SHOT_DATA
                 MARK_SHOT:
@@ -272,11 +292,12 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
             case(state)
                 INITIAL_START:
                     begin
+                    /*
                         ship_sizes[0] <= 3'd5;
                         ship_sizes[1] <= 3'd4;
                         ship_sizes[2] <= 3'd3;
                         ship_sizes[3] <= 3'd3;
-                        ship_sizes[4] <= 3'd2;
+                        ship_sizes[4] <= 3'd2; */
                         expected_player <= 1'b0; //Start with player 1
                     end
                 LOAD_SHIP_DATA:
@@ -306,7 +327,15 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
                                 row_addr[input_player] <= input_row;
                                 col_addr[input_player] <= input_col;
                             end
-                        else pos_valid <= 1'b0; //It doesn't fit
+                        else 
+                            begin
+                                pos_valid <= 1'b0; //It doesn't fits        
+                                data_cell <= 2'b01;
+                                data_row <= row_addr[~input_player];        //%%%%%%%%%%%%%%%%%%%%%%%% NEED TO UPDATE OUTPUT
+                                data_col <= col_addr[~input_player];
+                                data_player <= ~input_player;
+                                data_sink <= 1'b0;
+                            end
                     end
                 CHECK_CELLS:
                     begin   
@@ -314,6 +343,11 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
                             begin                             // Can stop checking
                                 pos_valid <= 1'b0;            // Reset variables
                                 finished_ship <= 1'b1;
+                                data_cell <= 2'b01;     //%%%%%%%%%%%%%%%%%%%%%%%% NEED TO UPDATE OUTPUT
+                                data_row <= row_addr[~input_player];
+                                data_col <= col_addr[~input_player];
+                                data_player <= ~input_player;
+                                data_sink <= 1'b0;
                             end
                         else if (size == ship_sizes[ship_addr[input_player]]) //Reached the end of the ship
                             begin
@@ -343,6 +377,11 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
                     begin               //Write the ship info into Ship Storage
                         write_enable_ss[input_player] <= 1'b0;  //Disable writing
                         //write_data[input_player] <= 2'b11;      //Mark the cell as a ship
+                        data_cell <= 2'b11;   
+                        data_row <= row_addr[input_player];
+                        data_col <= col_addr[input_player];
+                        data_player <= input_player;
+                        data_sink <= 1'b0;
                         if (size == ship_sizes[ship_addr[input_player]] - 1'b1) //Reached the end of the ship
                             begin
                                 finished_ship <= 1'b0;
@@ -387,6 +426,17 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
                         if (input_player == expected_player) correct_player <= 1'b1;    //Set correct_player
                         else correct_player <= 1'b0;
                     end
+                CHECK_PLAYER2:
+                    begin
+                        if (~correct_player) 
+                            begin //%%%%%%%%%%%%%%%%%%%%%%%% NEED TO UPDATE OUTPUT                                
+                                data_cell <= 2'b01;
+                                data_row <= row_addr[~input_player];
+                                data_col <= col_addr[~input_player];
+                                data_player <= ~input_player;
+                                data_sink <= 1'b0;
+                            end    
+                    end
                 ON_BOARD_SET2:
                     begin
                         if (input_row < 3'd10 && input_col < 3'd10)     //Check if the desired cell is on the board
@@ -395,7 +445,15 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
                                 row_addr[input_player] <= input_row;
                                 col_addr[input_player] <= input_col;
                             end
-                        else pos_valid <= 1'b0;
+                        else 
+                            begin //%%%%%%%%%%%%%%%%%%%%%%%% NEED TO UPDATE OUTPUT
+                                pos_valid <= 1'b0; //It doesn't fit
+                                data_cell <= 2'b01;
+                                data_row <= row_addr[~input_player];
+                                data_col <= col_addr[~input_player];
+                                data_player <= ~input_player;
+                                data_sink <= 1'b0;
+                            end
                     end
                 CHECK_SHOT_VALID:
                     begin
@@ -416,6 +474,11 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
                         else                                    //The cell has already be shot at
                             begin
                                 shot_valid <= 1'b0;
+                                data_cell <= 2'b01;     //%%%%%%%%%%%%%%%%%%%%%%%% NEED TO UPDATE OUTPUT
+                                data_row <= row_addr[~input_player];
+                                data_col <= col_addr[~input_player];
+                                data_player <= ~input_player;
+                                data_sink <= 1'b0;
                             end
                     end
                 MARK_SHOT:
@@ -424,8 +487,7 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
                         if (hit) //Hit
                             begin
                                 write_enable[~input_player] <= 1'b0;
-                                ship_addr[~input_player] <= 3'b000;    //Set up variables for checking if ships are sunk
-                                unsunk <= 1'b0;             
+                                ship_addr[~input_player] <= 3'b000;    //Set up variables for checking if ships are sunk           
                                 sunk_count_old[~input_player] <= sunk_count[~input_player];
                                 sunk_count[~input_player] <= 3'b000;
                             end
@@ -451,7 +513,6 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
                     begin
                         if (read_data[~input_player] == 2'b11) //if it is a ship
                             begin
-                                unsunk <= 1'b1;
                                 finished_ship <= 1'b1;
                                 size <= 3'b0;
                                 if (ship_addr[~input_player] == 3'b100) 
@@ -460,11 +521,12 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
                                     end
                                 else ship_addr[~input_player] <= ship_addr[~input_player] + 1'b1;
                             end
-                        else if (size == ship_sizes[ship_addr[~input_player]]-1'b1)
+                        else if (size == ship_len-1'b1)
                             begin
                                 finished_ship <= 1'b1;
                                 size <= 3'b0;
                                 ship_addr[~input_player] <= ship_addr[~input_player] + 1'b1;
+                                sunk_count[~input_player] <= sunk_count[~input_player] + 1'b1;
                                 if (ship_addr[~input_player] == 3'b100) 
                                     begin
                                         all_ships <= 1'b1;
