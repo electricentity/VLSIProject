@@ -134,10 +134,10 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
     flopenr #4 statereg(ph1, ph2, sunk_count_old_r[0], sunk_count_old_en[0], sunk_count_old_next[0], sunk_count_old[0]);
     flopenr #4 statereg(ph1, ph2, sunk_count_old_r[1], sunk_count_old_en[1], sunk_count_old_next[1], sunk_count_old[1]);
 
-    assign row_addr = row_addr_set_en ? row_addr_set_stage : row_addr_next_stage;
-    assign col_addr = col_addr_set_en ? col_addr_set_stage : col_addr_next_stage;
+    assign row_addr = row_addr_set_en ? (hit ? read_data_ss[~player][8:5] : row_addr_set_stage) : row_addr_next_stage;
+    assign col_addr = col_addr_set_en ? (hit ? read_data_ss[~player][4:1] : col_addr_set_stage : col_addr_next_stage;
     assign player_next = input_player;
-    assign direction_next = input_direction;
+    assign direction_next = hit ? read_data_ss[~player][0] : input_direction;
     assign expected_player_next = ~expected_player;
     assign size_next = size;
     assign ship_addr_next = ship_addr;
@@ -487,62 +487,74 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                 SET_SHIP_POS:
                     begin               //Write the ship info into Ship Storage
                         hit = 1'b0;
-                        valid = valid;
-                        row = row;
-                        col = col;
-                        player = player;
-                        direction = direction;
-                        sunk_count = 3'd0;
-                        sunk_count_old[0] = 3'd0;
-                        sunk_count_old[1] = 3'd0;
-                        write_enable[~player] = write_enable[~player];
+                        valid = 1'b0;
+                        write_enable[~player] = RESET;
                         write_data_ss = 9'b0;
-                        write_enable_ss[player] = 1'b0;
-                        write_enable_ss[~player] = 1'b0;
-                        data_ready = 1'b0;
+                        write_enable_ss[0] = 1'b0;
+                        write_enable_ss[1] = 1'b0;
+                        data_ready = 1'b1;
+
+                        player_bus = HOLD;
+                        direction_bus = HOLD;
+                        row_bus = HOLD;
+                        col_bus = HOLD;
+                        sunk_count_bus = RESET;
+                        sunk_count_old_bus[0] = RESET;
+                        sunk_count_old_bus[1] = RESET;
+
                         // data_out = {cell, row, col, player, sink}
                         data_out = {2'b11, row_addr, col_addr, player, 1'b0};
+
                         if (size == ship_sizes[ship_addr] - 1'b1) //Reached the end of the ship
                             begin
-                                size = 3'b0;
                                 finished_ship = 1'b0;
                                 write_enable[player] = 1'b0;
                                 write_data = 2'b00;
-                                row_addr = row_addr;
-                                col_addr = col_addr;
+
+                                size_bus = RESET;
+                                row_addr_set_bus = HOLD;
+                                col_addr_set_bus = HOLD;
+                                row_addr_next_bus = HOLD;
+                                col_addr_next_bus = HOLD;
+
                                 if (ship_addr == 3'b100) 
                                     begin
-                                        ship_addr = ship_addr;
                                         all_ships = 1'b1;
-                                        expected_player = 1'b1; //If all ships have been inputted
+
+                                        expected_player_bus = ENABLE;
+                                        ship_addr_bus = HOLD;
                                     end
                                 else 
                                     begin
-                                        ship_addr = ship_addr + 1'b1;  //Move on to next ship
                                         all_ships = 1'b0;
-                                        expected_player = 1'b1;
+
+                                        expected_player_bus = HOLD;
+                                        ship_addr_bus = ENABLE;
                                     end
                             end                                                                 //Change to next player
                         else if (finished_ship)
                             begin                       //Not at the end of the ship, move on to next cell
-                                size = size + 1'b1;
                                 finished_ship = 1'b0;
                                 write_enable[player] = 1'b0;
                                 write_data = 2'b00;
-                                ship_addr = ship_addr;
                                 all_ships = 1'b0;
-                                expected_player = expected_player; //If all ships have been inputted
+
+                                expected_player_bus = HOLD;
+                                size_bus = ENABLE;
+                                ship_addr_bus = HOLD;
+                                row_addr_set_bus = HOLD;
+                                col_addr_set_bus = HOLD;
                                 // horizontal
-                                if (direction)
+                                if (direction) 
                                     begin
-                                        row_addr = row_addr;
-                                        col_addr = col_addr + 1'b1;
+                                        row_addr_next_bus = HOLD;
+                                        col_addr_next_bus = ENABLE;
                                     end
                                 // vertical
                                 else
                                     begin
-                                        row_addr = row_addr + 1'b1;
-                                        col_addr = col_addr;
+                                        row_addr_next_bus = ENABLE;
+                                        col_addr_next_bus = HOLD;
                                     end
                             end    
                     end
@@ -552,180 +564,142 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                         valid = 1'b0;
                         all_ships = 1'b0;
                         finished_ship = 1'b0;
-                        expected_player = 1'b0;
-                        row = 4'b0000;
-                        col = 4'b0000;
-                        player = 1'b0;
-                        direction = 1'b0;
-                        size = 3'd0;
-                        sunk_count = 3'd0;
-                        sunk_count_old[0] = 3'd0;
-                        sunk_count_old[1] = 3'd0;
                         write_data = 2'b00;
                         write_enable[0] = 1'b0;
                         write_enable[1] = 1'b0;
                         write_data_ss = 9'b0;
                         write_enable_ss[0] = 1'b0;
                         write_enable_ss[1] = 1'b0;
-                        row_addr = 4'b0;
-                        col_addr = 4'b0;
                         data_ready = 1'b0;
                         data_out = 12'b0;
-                        ship_addr = 3'b0;
+
+                        player_bus = RESET;
+                        direction_bus = RESET;
+                        expected_player_bus = RESET;
+                        size_bus = RESET;
+                        ship_addr_bus = RESET;
+                        row_bus = RESET;
+                        col_bus = RESET;
+                        row_addr_set_bus = RESET;
+                        col_addr_set_bus = RESET;
+                        row_addr_next_bus = RESET;
+                        col_addr_next_bus = RESET;
+                        sunk_count_bus = RESET;
+                        sunk_count_old_bus[0] = RESET;
+                        sunk_count_old_bus[1] = RESET;
                     end 
                 LOAD_SHOT_DATA:
                     begin
                         hit = 1'b0;
                         all_ships = 1'b0;
                         finished_ship = 1'b0;
-                        expected_player = expected_player;
-                        row = input_row;
-                        col = input_col;
-                        player = input_player;
-                        direction = input_direction; //Read in inputs every clock cycle
-                        size = 3'b0;                 //Reset bools and counters
-                        sunk_count = sunk_count;
-                        sunk_count_old[0] = sunk_count_old[0];
-                        sunk_count_old[1] = sunk_count_old[1];
                         write_data = 2'b00;
                         write_enable[0] = 1'b0;
                         write_enable[1] = 1'b0;
                         write_data_ss = 9'b0;
                         write_enable_ss[0] = 1'b0;
                         write_enable_ss[1] = 1'b0;
-                        row_addr = 4'b0;
-                        col_addr = 4'b0;
-                        data_ready = 1'b0;
-                        data_out = 12'b0;
-                        ship_addr = 3'b0;
-                        if (player == expected_player) valid = 1'b1;
-                        else valid = 1'b0;  //Set the valid variable
-                    end
-                CHECK_PLAYER2:
-                    begin
-                        hit = 1'b0;
-                        all_ships = 1'b0;
-                        finished_ship = 1'b0;
-                        expected_player = expected_player;
-                        row = row;
-                        col = col;
-                        player = player;
-                        direction = direction; //Read in inputs every clock cycle
-                        size = 3'b0;                 //Reset bools and counters
-                        sunk_count = sunk_count;
-                        sunk_count_old[0] = sunk_count_old[0];
-                        sunk_count_old[1] = sunk_count_old[1];
-                        write_data = 2'b00;
-                        write_enable[0] = 1'b0;
-                        write_enable[1] = 1'b0;
-                        write_data_ss = 9'b0;
-                        write_enable_ss[0] = 1'b0;
-                        write_enable_ss[1] = 1'b0;
-                        row_addr = 4'b0;
-                        col_addr = 4'b0;
-                        data_ready = 1'b0;
-                        ship_addr = ship_addr;
-                        if (player == expected_player) valid = 1'b1;
-                        else valid = 1'b0;  //Set the valid variable
-                        //%%%%%%%%%%%%%%%%%%%%%%%% NEED TO UPDATE OUTPUT
-                        // data_out = {cell, row, col, player, sink}; 
-                        if (~valid) data_out = {2'b01, row_addr, col_addr, ~player, 1'b0};
-                        else data_out = 12'b0;
-                    end
-                ON_BOARD_SET2:
-                    begin
-                        hit = 1'b0;
-                        all_ships = 1'b0;
-                        finished_ship = 1'b0;
-                        expected_player = expected_player;
-                        row = row;
-                        col = col;
-                        player = player;
-                        direction = direction; 
-                        size = 3'd0;
-                        sunk_count = sunk_count;
-                        sunk_count_old[0] = sunk_count_old[0];
-                        sunk_count_old[1] = sunk_count_old[1];
-                        write_data = 2'b00;
-                        write_enable[0] = 1'b0;
-                        write_enable[1] = 1'b0;
-                        write_data_ss = 9'b0;
-                        write_enable_ss[0] = 1'b0;
-                        write_enable_ss[1] = 1'b0;
-                        data_ready = 1'b0;
-                        ship_addr = 3'b0;
-                        if (row < 3'd10 && col < 3'd10)     //Check if the desired cell is on the board
+
+                        player_bus = ENABLE;
+                        direction_bus = ENABLE;
+                        expected_player_bus = HOLD;
+                        size_bus = RESET;
+                        ship_addr_bus = HOLD;
+                        row_bus = ENABLE;
+                        col_bus = ENABLE;
+                        row_addr_set_bus = RESET;
+                        col_addr_set_bus = RESET;
+                        row_addr_next_bus = RESET;
+                        col_addr_next_bus = RESET;
+                        sunk_count_bus = HOLD;
+                        sunk_count_old_bus[0] = HOLD;
+                        sunk_count_old_bus[1] = HOLD;
+
+                        data_out = {2'b10, 4'b1111, 4'b1111, ~player, 1'b0};
+                        if (player == expected_player) 
                             begin
+                                data_ready = 1'b0;
                                 valid = 1'b1;
-                                row_addr = row;
-                                col_addr = col;
-                                data_out = 12'b0;
                             end
                         else 
                             begin
-                                valid = 1'b0; //It doesn't fit
-                                row_addr = row_addr;
-                                col_addr = col_addr;
-                                //%%%%%%%%%%%%%%%%%%%%%%%% NEED TO UPDATE OUTPUT
-                                // data_out = {cell, row, col, player, sink}; 
-                                data_out = {2'b01, row_addr, col_addr, ~player, 1'b0};
+                                data_ready = 1'b1;
+                                valid = 1'b0;  //Set the valid variable
                             end
                     end
                 ON_BOARD_CHECK2:
                     begin
                         hit = 1'b0;
-                        valid = valid;
                         all_ships = 1'b0;
                         finished_ship = 1'b0;
-                        expected_player = expected_player;
-                        row = row;
-                        col = col;
-                        player = player;
-                        direction = direction;
-                        size = 3'd0;
-                        sunk_count = sunk_count;
-                        sunk_count_old[0] = sunk_count_old[0];
-                        sunk_count_old[1] = sunk_count_old[1];
                         write_data = 2'b00;
                         write_enable[0] = 1'b0;
                         write_enable[1] = 1'b0;
                         write_data_ss = 9'b0;
                         write_enable_ss[0] = 1'b0;
                         write_enable_ss[1] = 1'b0;
-                        row_addr = row_addr;
-                        col_addr = col_addr;
-                        data_ready = 1'b0;
-                        data_out = data_out;
-                        ship_addr = ship_addr;
+
+                        player_bus = HOLD;
+                        direction_bus = HOLD;
+                        expected_player_bus = HOLD;
+                        size_bus = RESET;
+                        ship_addr_bus = HOLD;
+                        row_bus = HOLD;
+                        col_bus = HOLD;
+                        row_addr_next_bus = HOLD;
+                        col_addr_next_bus = HOLD;
+                        row_addr_set_bus = ENABLE;
+                        col_addr_set_bus = ENABLE;
+                        sunk_count_bus = HOLD;
+                        sunk_count_old_bus[0] = HOLD;
+                        sunk_count_old_bus[1] = HOLD;
+
+                        if (row < 4'd10 && col < 4'd10)  //Check that it fits if it is horizontal
+                            begin
+                                valid = 1'b1;
+                                data_ready = 1'b0;
+                                data_out = 12'b0;
+                            end  //Check that if fits if it is vertical
+                        else 
+                            begin
+                                valid = 1'b0;
+                                data_ready = 1'b1;
+                                data_out = {2'b11, 4'b1111, 4'b1111, player, 1'b0};
+                            end
                     end
                 CHECK_SHOT_VALID:
                     begin
                         all_ships = 1'b0;
                         finished_ship = 1'b0;
-                        expected_player = expected_player;
-                        row = row;
-                        col = col;
-                        player = player;
-                        direction = direction;
-                        size = 3'd0;
-                        sunk_count = sunk_count;
-                        sunk_count_old[0] = sunk_count_old[0];
-                        sunk_count_old[1] = sunk_count_old[1];
                         write_enable[player] = 1'b0;
                         write_data_ss = 9'b0;
                         write_enable_ss[0] = 1'b0;
                         write_enable_ss[1] = 1'b0;
-                        row_addr = row_addr;
-                        col_addr = col_addr;
-                        data_ready = 1'b0;
-                        ship_addr = ship_addr;
+
+                        player_bus = HOLD;
+                        direction_bus = HOLD;
+                        expected_player_bus = ENABLE;
+                        size_bus = RESET;
+                        ship_addr_bus = HOLD;
+                        row_bus = HOLD;
+                        col_bus = HOLD;
+                        row_addr_set_bus = HOLD;
+                        col_addr_set_bus = HOLD;
+                        row_addr_next_bus = HOLD;
+                        col_addr_next_bus = HOLD;
+                        sunk_count_bus = RESET;
+                        sunk_count_old_bus[~player] = HOLD;
+
                         if (read_data[~player] == 2'b00)      //The cell is empty
                             begin
                                 valid = 1'b1;
                                 hit = 1'b0;
                                 write_enable[~player] = 1'b1;
                                 write_data = 2'b01; //Mark the miss, disable writing, and switch players
-                                data_out = 12'b0;
+                                data_ready = 1'b1;
+                                data_out = {2'b01, row_addr, col_addr, ~player, 1'b0};
+
+                                sunk_count_old_bus[player] = HOLD;
                             end
                         else if (read_data[~player] == 2'b11)     // The cell is a ship
                             begin
@@ -733,98 +707,29 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                                 hit = 1'b1;
                                 write_enable[~player] = 1'b1;
                                 write_data = 2'b10;    //Mark the hit and disable writing
+                                data_ready = 1'b0;
                                 data_out = 12'b0;
+
+                                sunk_count_old_bus[player] = ENABLE;
                             end
                         else                                    //The cell has already be shot at
                             begin
                                 valid = 1'b0;
                                 hit = 1'b0;
                                 write_enable[~player] = 1'b0;
-                                write_data = 2'b00;    //Mark the hit and disable writing
-                                 //%%%%%%%%%%%%%%%%%%%%%%%% NEED TO UPDATE OUTPUT
-                                // data_out = {cell, row, col, player, sink};
-                                data_out = {2'b01, row_addr, col_addr, ~player, 1'b0};
-                            end
-                    end
-                CHECK_SHOT_VALID2:
-                    begin
-                        hit = 1'b0;
-                        valid = valid;
-                        all_ships = 1'b0;
-                        finished_ship = 1'b0;
-                        expected_player = expected_player;
-                        row = row;
-                        col = col;
-                        player = player;
-                        direction = direction;
-                        size = 3'd0;
-                        sunk_count = sunk_count;
-                        sunk_count_old[0] = sunk_count_old[0];
-                        sunk_count_old[1] = sunk_count_old[1];
-                        write_data = 2'b00;
-                        write_enable[0] = 1'b0;
-                        write_enable[1] = 1'b0;
-                        write_data_ss = 9'b0;
-                        write_enable_ss[0] = 1'b0;
-                        write_enable_ss[1] = 1'b0;
-                        row_addr = row_addr;
-                        col_addr = col_addr;
-                        data_ready = 1'b0;
-                        data_out = data_out;
-                        ship_addr = ship_addr;
-                    end
-                MARK_SHOT:
-                    begin
-                        hit = 1'b0;
-                        valid = valid;
-                        all_ships = 1'b0;
-                        finished_ship = 1'b0;
-                        expected_player = ~expected_player;
-                        row = row;
-                        col = col;
-                        player = player;
-                        direction = direction;
-                        size = 3'd0;
-                        sunk_count_old[player] = sunk_count_old[player];
-                        write_data = 2'b00;
-                        write_enable[0] = 1'b0;
-                        write_enable[1] = 1'b0;
-                        write_data_ss = 9'b0;
-                        write_enable_ss[0] = 1'b0;
-                        write_enable_ss[1] = 1'b0;
-                        row_addr = row_addr;
-                        col_addr = col_addr;
-                        data_ready = 1'b0;
-                        ship_addr = 3'b0;
-                        if (hit) //Hit
-                            begin           
-                                sunk_count_old[~player] = sunk_count;
-                                sunk_count = 3'b000;
-                                data_out = data_out;
-                            end
-                        else        //Miss
-                            begin     
-                                sunk_count = sunk_count;
-                                sunk_count_old[~player] = sunk_count_old[~player];
-                                //%%%%%%%%%%%%%%%%%%%%%%%% NEED TO UPDATE OUTPUT
-                                // data_out = {cell, row, col, player, sink}; 
-                                data_out = {2'b01, row_addr, col_addr, ~player, 1'b0};
+                                write_data = 2'b00;    
+                                data_ready = 1'b0;
+                                data_out = {2'b11, 4'b1111, 4'b1111, player, 1'b0};
+
+                                sunk_count_old_bus[player] = HOLD;
                             end
                     end
                 GET_SHIP_INFO:
                     begin           //Get the info for the ship from Ship Storage
-                        hit = hit;
-                        valid = valid;
+                        hit = 1'b1;
+                        valid = 1'b0;
                         all_ships = 1'b0;
                         finished_ship = 1'b0;
-                        expected_player = expected_player;
-                        row = row;
-                        col = col;
-                        player = player;
-                        size = 3'b0;
-                        sunk_count = sunk_count;
-                        sunk_count_old[0] = sunk_count_old[0];
-                        sunk_count_old[1] = sunk_count_old[1];
                         write_data = 2'b00;
                         write_enable[0] = 1'b0;
                         write_enable[1] = 1'b0;
@@ -832,9 +737,22 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                         write_enable_ss[0] = 1'b0;
                         write_enable_ss[1] = 1'b0;
                         data_ready = 1'b0;
-                        data_out = data_out;
-                        ship_addr = ship_addr;
-                        {row_addr, col_addr, direction} = read_data_ss[~player];
+                        data_out = 12'b0;
+
+                        player_bus = HOLD;
+                        direction_bus = ENABLE;
+                        expected_player_bus = HOLD;
+                        size_bus = RESET;
+                        ship_addr_bus = HOLD;
+                        row_bus = HOLD;
+                        col_bus = HOLD;
+                        row_addr_set_bus = ENABLE;
+                        col_addr_set_bus = ENABLE;
+                        row_addr_next_bus = HOLD;
+                        col_addr_next_bus = HOLD;
+                        sunk_count_bus = HOLD;
+                        sunk_count_old_bus[0] = HOLD;
+                        sunk_count_old_bus[1] = HOLD;
                     end
                 CHECK_SUNK:
                     begin
@@ -968,86 +886,35 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                         data_out = {2'b01, 4'b1111, 4'b1111, player, 1'b0};
                         ship_addr = ship_addr;
                     end
-                DATA_SETUP: //data_ready = 1'b1;
-                    begin
-                        hit = hit;
-                        valid = valid;
-                        all_ships = all_ships;
-                        finished_ship = finished_ship;
-                        expected_player = expected_player;
-                        row = row;
-                        col = col;
-                        player = player;
-                        direction = direction; 
-                        size = size;
-                        sunk_count = sunk_count;
-                        sunk_count_old[0] = sunk_count_old[0];
-                        sunk_count_old[1] = sunk_count_old[1];
-                        write_data = 2'b00;
-                        write_enable[0] = 1'b0;
-                        write_enable[1] = 1'b0;
-                        write_data_ss = 9'b0;
-                        write_enable_ss[0] = 1'b0;
-                        write_enable_ss[1] = 1'b0;
-                        row_addr = row_addr;
-                        col_addr = col_addr;
-                        data_ready = 1'b1;
-                        data_out = data_out;
-                        ship_addr = ship_addr;
-                    end
-                DATA_SEND: //data_ready = 1'b0;
-                    begin
-                        hit = hit;
-                        valid = valid;
-                        all_ships = all_ships;
-                        finished_ship = finished_ship;
-                        expected_player = expected_player;
-                        row = row;
-                        col = col;
-                        player = player;
-                        direction = direction; 
-                        size = size;
-                        sunk_count = sunk_count;
-                        sunk_count_old[0] = sunk_count_old[0];
-                        sunk_count_old[1] = sunk_count_old[1];
-                        write_data = 2'b00;
-                        write_enable[0] = 1'b0;
-                        write_enable[1] = 1'b0;
-                        write_data_ss = 9'b0;
-                        write_enable_ss[0] = 1'b0;
-                        write_enable_ss[1] = 1'b0;
-                        row_addr = row_addr;
-                        col_addr = col_addr;
-                        data_ready = 1'b0;
-                        data_out = data_out;
-                        ship_addr = ship_addr;
-                    end
                 default: 
                     begin
                         hit = 1'b0;
                         valid = 1'b0;
                         all_ships = 1'b0;
                         finished_ship = 1'b0;
-                        expected_player = 1'b0;
-                        row = 4'b0000;
-                        col = 4'b0000;
-                        player = 1'b0;
-                        direction = 1'b0;
-                        size = 3'd0;
-                        sunk_count = 3'd0;
-                        sunk_count_old[0] = 3'd0;
-                        sunk_count_old[1] = 3'd0;
                         write_data = 2'b00;
                         write_enable[0] = 1'b0;
                         write_enable[1] = 1'b0;
                         write_data_ss = 9'b0;
                         write_enable_ss[0] = 1'b0;
                         write_enable_ss[1] = 1'b0;
-                        row_addr = 4'b0;
-                        col_addr = 4'b0;
                         data_ready = 1'b0;
                         data_out = 12'b0;
-                        ship_addr = 3'b0;
+
+                        player_bus = RESET;
+                        direction_bus = RESET;
+                        expected_player_bus = RESET;
+                        size_bus = RESET;
+                        ship_addr_bus = RESET;
+                        row_bus = RESET;
+                        col_bus = RESET;
+                        row_addr_set_bus = RESET;
+                        col_addr_set_bus = RESET;
+                        row_addr_next_bus = RESET;
+                        col_addr_next_bus = RESET;
+                        sunk_count_bus = RESET;
+                        sunk_count_old_bus[0] = RESET;
+                        sunk_count_old_bus[1] = RESET;
                     end 
             endcase
         end
