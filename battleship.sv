@@ -67,7 +67,7 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
     
     logic valid, expected_player, finished_ship, hit, all_ships;
     logic input_player, input_direction;
-    logic [2:0] size, ship_len; // counter
+    logic [2:0] size; // counter
     logic [2:0] sunk_count[1:0], sunk_count_old[1:0];
     logic [3:0] input_row, input_col;
     logic [4:0] state, nextstate, hold_nextstate;
@@ -185,10 +185,7 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
                         else     nextstate = DATA_SETUP;
                     end
                 // Get the info for the position of the next ship to check
-                GET_SHIP_INFO:
-                    begin
-                        nextstate = CHECK_SUNK;
-                    end
+                GET_SHIP_INFO: nextstate = CHECK_SUNK;
                 // Check if the ship is sunk or not and set up for next ship
                 CHECK_SUNK:
                     begin
@@ -252,7 +249,6 @@ module controller(input logic ph1, ph2, reset, read, player, direction,
                         input_row = row;
                         input_col = col;
                         size = 3'b0;                 //Reset bools and counters
-                        valid = 1'b0;
                         finished_ship = 1'b0;
                         all_ships = 1'b0;
                         if (input_player == expected_player) valid = 1'b1;
@@ -496,7 +492,7 @@ endmodule
 //------------------------------------------------
 module gb_mem(input logic ph2, reset, write_enable,
               input logic [3:0] row, col,
-              input logic [3:0] write_data,
+              input logic [1:0] write_data,
               output logic [1:0] read_data);
     // write_data:
     // 00 -> nothing, lights off
@@ -507,15 +503,66 @@ module gb_mem(input logic ph2, reset, write_enable,
     // mem is 10 chunks x 10 chunks, 100 places to store
     // 2 bits per memory location
 
-    logic [1:0] mem[9:0][9:0]; //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% FIX LATER
-    assign read_data = mem[row][col];
+    logic [19:0] read, write;
+    logic [19:0] mem[9:0]; 
+    logic [3:0] i;
+
+    assign read = mem[row];
+
     always_latch
         begin
             if (reset)
                 begin
-                    for (i=0; i<8; i=i+1) mem[i] <= 2'b00;
+                    mem[0] <= 20'b0;
+                    mem[1] <= 20'b0;
+                    mem[2] <= 20'b0;
+                    mem[3] <= 20'b0;
+                    mem[4] <= 20'b0;
+                    mem[5] <= 20'b0;
+                    mem[6] <= 20'b0;
+                    mem[7] <= 20'b0;
+                    mem[8] <= 20'b0;
+                    mem[9] <= 20'b0;
                 end
-            else (write_enable & ph2) mem[row][col] <= write_data;
+            else if (write_enable && ph2) mem[row] <= write;
+        end
+
+    always_comb
+        begin  
+            case(col)
+                4'd0: read_data = read[1:0];
+                4'd1: read_data = read[3:2];
+                4'd2: read_data = read[5:4];
+                4'd3: read_data = read[7:6];
+                4'd4: read_data = read[9:8];
+                4'd5: read_data = read[11:10];
+                4'd6: read_data = read[13:12];
+                4'd7: read_data = read[15:14];
+                4'd8: read_data = read[17:16];
+                4'd9: read_data = read[19:18];
+                default: read_data = read[1:0];
+            endcase
+        end
+
+    always_comb
+        begin
+            if(write_enable)
+                begin
+                    case(col)
+                        4'd0: write = {read[19:2], write_data};
+                        4'd1: write = {read[19:4], write_data, read[1:0]};
+                        4'd2: write = {read[19:6], write_data, read[3:0]};
+                        4'd3: write = {read[19:8], write_data, read[5:0]};
+                        4'd4: write = {read[19:10], write_data, read[7:0]};
+                        4'd5: write = {read[19:12], write_data, read[9:0]};
+                        4'd6: write = {read[19:14], write_data, read[11:0]};
+                        4'd7: write = {read[19:16], write_data, read[13:0]};
+                        4'd8: write = {read[19:18], write_data, read[15:0]};
+                        4'd9: write = {write_data, read[17:0]};
+                        default: write = {read[19:2], write_data};
+                    endcase
+                end
+            else write = 20'b0;
         end
 endmodule
 
@@ -541,9 +588,17 @@ module ss_mem(input logic ph2, reset, write_enable,
         begin
             if (reset)
                 begin
-                    for (i=0; i<8; i=i+1) mem[i] <= 9'b0;
+                    mem[0] <= 9'b0;
+                    mem[1] <= 9'b0;
+                    mem[2] <= 9'b0;
+                    mem[3] <= 9'b0;
+                    mem[4] <= 9'b0;
+                    mem[5] <= 9'b0;
+                    mem[6] <= 9'b0;
+                    mem[7] <= 9'b0;
+                    mem[8] <= 9'b0;
                 end
-            else (write_enable & ph2) mem[ship_addr] <= write_data;
+            else if (write_enable && ph2) mem[ship_addr] <= write_data;
         end
 endmodule
 
