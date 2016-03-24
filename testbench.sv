@@ -12,13 +12,13 @@ module testbench();
     logic [3:0] row, col;
     // 13 bits of output
     logic data_ready;
-    logic [11:0] data_out;
+    logic [11:0] data_out, data_out_expected;
 
     // Instantiate Device Under Test (DUT)
     battleship dut(ph1, ph2, reset, read, player, direction, row, col, data_out, data_ready);
     
     // Logic for reading in vectors
-    logic [11:0] vectors[200:0], currentvec;
+    logic [23:0] vectors[200:0], currentvec;
     logic [15:0] vectornum, errors;
 
     // read test vector file and initialize test
@@ -58,9 +58,11 @@ module testbench();
     // check if test was sucessful and apply next one
     always @(posedge ph2)
         begin
+        $display("Vectornum =%d ", vectornum);
             if (data_ready)
                 begin
                     // We get an unexpected value
+                    $display("Vectornum =%d ", vectornum);
                     if (data_out != data_out_expected)
                         begin
                             errors = errors + 1;
