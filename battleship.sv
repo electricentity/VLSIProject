@@ -428,13 +428,13 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                         sunk_count_old_bus[0] = RESET;
                         sunk_count_old_bus[1] = RESET;
 
-                        if (direction && row < 4'd10 && col < (10-ship_sizes[ship_addr]))  //Check that it fits if it is horizontal
+                        if (direction && row < 4'd10 && col <= (10-ship_sizes[ship_addr]))  //Check that it fits if it is horizontal
                             begin
                                 valid = 1'b1;
                                 data_ready = 1'b0;
                                 data_out = 12'b0;
                             end  //Check that if fits if it is vertical
-                        else if (~direction && col < 4'd10 && row < (10-ship_sizes[ship_addr])) 
+                        else if (~direction && col <= 4'd10 && row <= (10-ship_sizes[ship_addr])) 
                             begin
                                 valid = 1'b1;
                                 data_ready = 1'b0;
@@ -1374,7 +1374,7 @@ module testbench();
 
     // read test vector file and initialize test
     initial begin
-        $readmemb("battleship.tv", vectors);
+        $readmemb("jnguyen_battleship.tv", vectors);
         vectornum = 0; errors = 0;
         #5; reset = 1; #5; reset = 0;
     end
