@@ -624,22 +624,6 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                                         write_enable[1] = 1'b0;
                                     end
                             end    
-                        /*else 
-                            begin
-                                finished_ship = 1'b0;
-                                write_enable[0] = 1'b0;
-                                write_enable[1] = 1'b0;
-                                write_data = EMPTY;
-                                all_ships = 1'b0;
-
-                                expected_player_bus = HOLD;
-                                size_bus = HOLD;
-                                ship_addr_bus = HOLD;
-                                row_addr_set_bus = HOLD;
-                                col_addr_set_bus = HOLD;
-                                row_addr_next_bus = HOLD;
-                                col_addr_next_bus = HOLD;
-                            end*/
                     end
                 GAME_START:
                     begin
@@ -800,27 +784,6 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                     end
                 CHECK_SHOT_VALID:
                     begin
-                        /*
-                        all_ships = 1'b0;
-                        finished_ship = 1'b0;
-                        write_data_ss = 9'b0;
-                        write_enable_ss[0] = 1'b0;
-                        write_enable_ss[1] = 1'b0;
-                        row_addr_sel = 1'b0;
-                        col_addr_sel = 1'b0;
-
-                        player_bus = HOLD;
-                        direction_bus = HOLD;
-                        size_bus = RESET;
-                        ship_addr_bus = HOLD;
-                        row_bus = HOLD;
-                        col_bus = HOLD;
-                        row_addr_set_bus = HOLD;
-                        col_addr_set_bus = HOLD;
-                        row_addr_next_bus = HOLD;
-                        col_addr_next_bus = HOLD;
-                        sunk_count_bus = RESET;
-                        */
                         valid = 1'b0;
                         hit = 1'b0;
                         all_ships = 1'b0;
@@ -864,70 +827,6 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                                 write_data = EMPTY;
                             end
                     end
-/*
-                        if (read_data[~player] == EMPTY)      //The cell is empty
-                            begin
-                                valid = 1'b1;
-                                hit = 1'b0;
-                                write_data = MISS; //Mark the miss, disable writing, and switch players
-                                data_ready = 1'b1;
-                                data_out = {MISS, row_addr, col_addr, ~player, 1'b0};
-
-                                sunk_count_old_bus[0] = HOLD;
-                                sunk_count_old_bus[1] = HOLD;
-                                expected_player_bus = ENABLE;
-
-                                if (player)
-                                    begin
-                                        write_enable[0] = 1'b1;
-                                        write_enable[1] = 1'b0;
-                                    end
-                                else 
-                                    begin
-                                        write_enable[1] = 1'b1;
-                                        write_enable[0] = 1'b0;
-                                    end
-                            end
-                        else if (read_data[~player] == SHIP || hit)     // The cell is a ship
-                            begin
-                                valid = 1'b1;
-                                hit = 1'b1;
-                                write_data = HIT;    //Mark the hit and disable writing
-                                data_ready = 1'b0;
-                                data_out = 12'b0;
-                                expected_player_bus = ENABLE;
-
-                                if (player)
-                                    begin
-                                        write_enable[0] = 1'b1;
-                                        write_enable[1] = 1'b0;
-                                        sunk_count_old_bus[1] = ENABLE;
-                                        sunk_count_old_bus[0] = HOLD;
-                                    end
-                                else 
-                                    begin
-                                        write_enable[1] = 1'b1;
-                                        write_enable[0] = 1'b0;
-                                        sunk_count_old_bus[0] = ENABLE;
-                                        sunk_count_old_bus[1] = HOLD;
-                                    end
-                            end
-                        else                                    //The cell has already be shot at
-                            begin
-                                valid = 1'b0;
-                                hit = 1'b0;
-                                write_enable[0] = 1'b0;
-                                write_enable[1] = 1'b0;
-                                write_data = EMPTY;    
-                                data_ready = 1'b1;
-                                data_out = {SHIP, 4'b1111, 4'b1111, player, 1'b0};
-
-                                sunk_count_old_bus[0] = HOLD;
-                                sunk_count_old_bus[1] = HOLD;
-                                expected_player_bus = HOLD;
-                            end
-                    end
-*/
                 CHECK_SHOT_VALID2:
                     begin
                         all_ships = 1'b0;
@@ -1149,78 +1048,7 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                                         row_addr_set_bus = HOLD;
                                         col_addr_set_bus = HOLD;
                                     end
-                            end/*
-                        else if (size == ship_sizes[ship_addr]-1'b1)
-                            begin
-                                finished_ship = 1'b1;
-
-                                size_bus = RESET;
-                                sunk_count_bus = RESET;
-                                row_addr_next_bus = HOLD;
-                                col_addr_next_bus = HOLD;
-
-
-                                if (ship_addr == 3'b100) 
-                                    begin
-                                        all_ships = 1'b1;
-                                        row_addr_sel = 1'b1;
-                                        col_addr_sel = 1'b1;
-
-                                        ship_addr_bus = HOLD;
-                                        row_addr_set_bus = ENABLE;
-                                        col_addr_set_bus = ENABLE;
-                                    end
-                                else 
-                                    begin
-                                        all_ships = 1'b0;
-                                        row_addr_sel = 1'b0;
-                                        col_addr_sel = 1'b0;
-                                        
-                                        ship_addr_bus = ENABLE;
-                                        row_addr_set_bus = HOLD;
-                                        col_addr_set_bus = HOLD;
-                                    end
                             end
-                        else if (~finished_ship)
-                            begin
-                                finished_ship = 1'b0;
-                                all_ships = 1'b0;
-                                row_addr_sel = 1'b0;
-                                col_addr_sel = 1'b0;
-
-                                size_bus = ENABLE;
-                                ship_addr_bus = HOLD;
-                                sunk_count_bus = HOLD;
-                                row_addr_set_bus = HOLD;
-                                col_addr_set_bus = HOLD;
-                                // horizontal
-                                if (direction) 
-                                    begin
-                                        row_addr_next_bus = HOLD;
-                                        col_addr_next_bus = ENABLE;
-                                    end
-                                // vertical
-                                else
-                                    begin
-                                        row_addr_next_bus = ENABLE;
-                                        col_addr_next_bus = HOLD;
-                                    end
-                            end    
-                        else
-                            begin
-                                finished_ship = 1'b0;
-                                all_ships = 1'b0;
-                                row_addr_sel = 1'b0;
-                                col_addr_sel = 1'b0;
-
-                                size_bus = HOLD;
-                                ship_addr_bus = HOLD;
-                                sunk_count_bus = HOLD;
-                                row_addr_set_bus = HOLD;
-                                col_addr_set_bus = HOLD;
-                                row_addr_next_bus = HOLD;
-                                col_addr_next_bus = HOLD;
-                            end*/
                     end
                 CHECK_ALL_SUNK:
                     begin
