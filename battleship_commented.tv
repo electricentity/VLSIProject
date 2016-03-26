@@ -1,0 +1,111 @@
+//reset, read, player, direction, row, col, data_out_expected
+
+// Player 1
+0_1_1_0_0000_0000_10_1111_1111_0_0 // wrong player
+0_1_0_0_0000_1001_11_0000_1001_0_0 // set 5x1 ship vertically at (0,9) // (row, col)
+0_1_0_0_0000_1001_11_0001_1001_0_0
+0_1_0_0_0000_1001_11_0010_1001_0_0
+0_1_0_0_0000_1001_11_0011_1001_0_0
+0_1_0_0_0000_1001_11_0100_1001_0_0
+0_1_0_1_1001_0000_11_1001_0000_0_0 // set 4x1 ship horizontally at (9,0)
+0_1_0_1_1001_0000_11_1001_0001_0_0
+0_1_0_1_1001_0000_11_1001_0010_0_0
+0_1_0_1_1001_0000_11_1001_0011_0_0
+0_1_0_1_0000_1010_11_1111_1111_0_0 // fail to set 3x1 ship horizontally at (0,10), OOB
+0_1_0_0_1010_0000_11_1111_1111_0_0 // fail to set 3x1 ship vertically at (10,0), OOB
+0_1_0_1_0000_1000_11_1111_1111_0_0 // fail to set 3x1 ship horizontally at (0,8), OOB
+0_1_0_1_0000_0111_11_1111_1111_0_0 // fail to set 3x1 ship horizontally at (0,7), ship at edge
+0_1_0_0_1000_0000_11_1111_1111_0_0 // fail to set 3x1 ship vertically at (8,0), OOB
+0_1_0_0_0111_0000_11_1111_1111_0_0 // fail to set 3x1 ship vertically at (7,0), ship at edge
+0_1_0_1_1000_0000_11_1000_0000_0_0 // set 3x1 ship horizontally at (8,0)
+0_1_0_1_1000_0000_11_1000_0001_0_0
+0_1_0_1_1000_0000_11_1000_0010_0_0
+0_1_0_0_0000_1000_11_0000_1000_0_0 // set 3x1 ship vertically at (0,8)
+0_1_0_0_0000_1000_11_0001_1000_0_0
+0_1_0_0_0000_1000_11_0010_1000_0_0
+0_1_0_0_0100_0100_11_0100_0100_0_0 // set 2x1 ship vertically at (4,4)
+0_1_0_0_0100_0100_11_0101_0100_0_0
+
+// Player 2
+0_1_0_0_0000_0000_10_1111_1111_1_0 // wrong player
+0_1_1_0_0000_1001_11_0000_1001_1_0 // set 5x1 ship vertically at (0,9) // (row, col)
+0_1_1_0_0000_1001_11_0001_1001_1_0
+0_1_1_0_0000_1001_11_0010_1001_1_0
+0_1_1_0_0000_1001_11_0011_1001_1_0
+0_1_1_0_0000_1001_11_0100_1001_1_0
+0_1_1_1_1001_0000_11_1001_0000_1_0 // set 4x1 ship horizontally at (9,0)
+0_1_1_1_1001_0000_11_1001_0001_1_0
+0_1_1_1_1001_0000_11_1001_0010_1_0
+0_1_1_1_1001_0000_11_1001_0011_1_0
+0_1_1_1_0000_1010_11_1111_1111_1_0 // fail to set 3x1 ship horizontally at (0,10), OOB
+0_1_1_0_1010_0000_11_1111_1111_1_0 // fail to set 3x1 ship vertically at (10,0), OOB
+0_1_1_1_0000_1000_11_1111_1111_1_0 // fail to set 3x1 ship horizontally at (0,8), OOB
+0_1_1_1_0000_0111_11_1111_1111_1_0 // fail to set 3x1 ship horizontally at (0,7), ship at edge
+0_1_1_0_1000_0000_11_1111_1111_1_0 // fail to set 3x1 ship vertically at (8,0), OOB
+0_1_1_0_0111_0000_11_1111_1111_1_0 // fail to set 3x1 ship vertically at (7,0), ship at edge
+0_1_1_1_1000_0000_11_1000_0000_1_0 // set 3x1 ship horizontally at (8,0)
+0_1_1_1_1000_0000_11_1000_0001_1_0
+0_1_1_1_1000_0000_11_1000_0010_1_0
+0_1_1_0_0000_1000_11_0000_1000_1_0 // set 3x1 ship vertically at (0,8)
+0_1_1_0_0000_1000_11_0001_1000_1_0
+0_1_1_0_0000_1000_11_0010_1000_1_0
+0_1_1_1_0100_0100_11_0100_0100_1_0 // set 2x1 ship horizontally at (4,4)
+0_1_1_1_0100_0100_11_0100_0101_1_0
+
+// Game Start!
+// Start with Player 1, Player 1 and Player 2 both sink each others 2x1
+0_1_1_0_0000_0000_10_1111_1111_0_0 // wrong player
+0_1_0_0_1010_0000_11_1111_1111_0_0 // Player 1 OOB rows
+0_1_0_0_0000_1010_11_1111_1111_0_0 // Player 1 OOB columns
+0_1_0_0_0100_0100_10_0100_0100_1_0 // Player 1 hits Player 2 at (4,4)
+0_1_1_0_0100_0100_10_0100_0100_0_0 // Player 2 hits Player 1 at (4,4)
+0_1_0_0_0011_0100_01_0011_0100_1_0 // Player 1 misses Player 2 at (3,4)
+0_1_0_0_0000_0000_10_1111_1111_1_0 // wrong player
+0_1_1_0_1010_0000_11_1111_1111_1_0 // Player 2 OOB rows
+0_1_1_0_0000_1010_11_1111_1111_1_0 // Player 2 OOB columns
+0_1_1_0_0101_0100_10_0101_0100_0_1 // Player 2 hits Player 1 at (5,4), sinks the 2x1
+0_1_0_0_0100_0101_10_0100_0101_1_1 // Player 1 hits Player 2 at (4,5), sinks the 2x1
+
+// Player 1 sinks Player 2's 5x1 ship
+0_1_1_0_0011_0011_01_0011_0011_0_0 // Player 2 miss Player 1 at (3,3)
+0_1_0_0_0000_1001_10_0000_1001_1_0 // Player 1 hits Player 2 at (0,9)
+0_1_1_0_0011_0011_11_1111_1111_1_0 // Player 2 invalid shot at (3,3), was previously a miss
+0_1_1_0_0101_0100_11_1111_1111_1_0 // Player 2 invalid shot at (5,4), was previously a hit
+0_1_1_0_0011_0010_01_0011_0010_0_0 // Player 2 miss Player 1 at (3,2)
+0_1_0_0_0001_1001_10_0001_1001_1_0 // Player 1 hits Player 2 at (1,9)
+0_1_1_0_0011_0001_01_0011_0001_0_0 // Player 2 miss Player 1 at (3,1)
+0_1_0_0_0010_1001_10_0010_1001_1_0 // Player 1 hits Player 2 at (2,9)
+0_1_1_0_0011_0000_01_0011_0000_0_0 // Player 2 miss Player 1 at (3,0)
+0_1_0_0_0011_1001_10_0011_1001_1_0 // Player 1 hits Player 2 at (3,9)
+0_1_1_0_0010_0000_01_0010_0000_0_0 // Player 2 miss Player 1 at (2,0)
+0_1_0_0_0100_1001_10_0100_1001_1_1 // Player 1 hits Player 2 at (4,9), sinks the 5x1
+
+// Player 1 sinks Player 2's 4x1 ship
+0_1_1_0_0111_0111_01_0111_0111_0_0 // Player 2 miss Player 1 at (7,7)
+0_1_0_0_1001_0000_10_1001_0000_1_0 // Player 1 hits Player 2 at (9,0)
+0_1_1_0_0111_0110_01_0111_0110_0_0 // Player 2 miss Player 1 at (7,6)
+0_1_0_0_1001_0001_10_1001_0001_1_0 // Player 1 hits Player 2 at (9,1)
+0_1_1_0_0111_0101_01_0111_0101_0_0 // Player 2 miss Player 1 at (7,5)
+0_1_0_0_1001_0010_10_1001_0010_1_0 // Player 1 hits Player 2 at (9,2)
+0_1_1_0_0111_0100_01_0111_0100_0_0 // Player 2 miss Player 1 at (7,4)
+0_1_0_0_1001_0011_10_1001_0011_1_1 // Player 1 hits Player 2 at (9,3), sinks the 4x1
+
+// Player 1 sinks Player 2's 3x1 horizontal ship
+0_1_1_0_0101_0101_01_0101_0101_0_0 // Player 2 miss Player 1 at (5,5)
+0_1_0_0_1000_0000_10_1000_0000_1_0 // Player 1 hits Player 2 at (8,0)
+0_1_1_0_0101_0100_01_0101_0100_0_0 // Player 2 miss Player 1 at (5,4)
+0_1_0_0_1000_0001_10_1000_0001_1_0 // Player 1 hits Player 2 at (8,1)
+0_1_1_0_0101_0011_01_0101_0011_0_0 // Player 2 miss Player 1 at (5,3)
+0_1_0_0_1000_0010_10_1000_0010_1_1 // Player 1 hits Player 2 at (8,2), sinks the 4x1
+
+// Player 1 sinks Player 2's 3x1 vertical ship, game over!
+0_1_1_0_0110_0101_01_0110_0101_0_0 // Player 2 miss Player 1 at (6,5)
+0_1_0_0_0000_1000_10_0000_1000_1_0 // Player 1 hits Player 2 at (0,8)
+0_1_1_0_0110_0100_01_0110_0100_0_0 // Player 2 miss Player 1 at (6,4)
+0_1_0_0_0001_1000_10_0001_1000_1_0 // Player 1 hits Player 2 at (1,8)
+0_1_1_0_0110_0011_01_0110_0011_0_0 // Player 2 miss Player 1 at (6,3)
+0_1_0_0_0010_1000_10_0010_1000_1_1 // Player 1 hits Player 2 at (2,8), sinks the 4x1
+0_1_0_0_0010_1000_01_1111_1111_0_0 // Player 1 has won the game!
+
+// Reset!
+1_0_0_0_0000_0000_00_0000_0000_0_0 // Reset, data_out goes to all 0's
