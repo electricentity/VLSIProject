@@ -19,32 +19,33 @@ module battleship(input logic ph1, ph2, reset, read, player, direction,
                   output logic [11:0] data_out);
 
     // Wires to go to the inputs/outputs of each instantiation
-    logic       write_enable[1:0], write_enable_ss[1:0];
-    logic [1:0] write_data, read_data[1:0]; // Only 1 write_data b/c of seperate write enables
+    logic [1:0] write_enable, write_enable_ss;
+    logic [1:0] write_data; 
+    logic [1:0] read_data0, read_data1; // Only 1 write_data b/c of seperate write enables
     logic [2:0] ship_addr;                  // 5 ships total
     logic [3:0] row_addr, col_addr;         // 10 rows/columns required
-    logic [8:0] write_data_ss, read_data_ss[1:0];
+    logic [8:0] write_data_ss, read_data_ss0, read_data_ss1;
 
     // Instantiate the FSM controller for the system
     controller c(ph1, ph2, reset, read, player, direction,
-                 row, col, read_data, read_data_ss,
+                 row, col, read_data0, read_data1, read_data_ss0, read_data_ss1,
                  write_data, write_data_ss, 
                  row_addr, col_addr, ship_addr,
-                 write_enable, write_enable_ss,
+                 write_enable0, write_enable1, write_enable_ss0, write_enable_ss1,
                  data_ready, data_out);
 
     // Instantiate the memory block for the system, Player 1 is 1, Player 2 is 2
-    gb_mem gameboard1(ph2, write_enable[0],
-                      row_addr, col_addr, write_data, read_data[0]);
+    gb_mem gameboard1(ph2, write_enable0,
+                      row_addr, col_addr, write_data, read_data0);
 
-    gb_mem gameboard2(ph2, write_enable[1],
-                      row_addr, col_addr, write_data, read_data[1]);
+    gb_mem gameboard2(ph2, write_enable1,
+                      row_addr, col_addr, write_data, read_data1);
 
-    ss_mem shipstorage1(ph2, write_enable_ss[0],
-                        ship_addr, write_data_ss, read_data_ss[0]);
+    ss_mem shipstorage1(ph2, write_enable_ss0,
+                        ship_addr, write_data_ss, read_data_ss0);
 
-    ss_mem shipstorage2(ph2, write_enable_ss[1],
-                        ship_addr, write_data_ss, read_data_ss[1]);
+    ss_mem shipstorage2(ph2, write_enable_ss1,
+                        ship_addr, write_data_ss, read_data_ss1);
 endmodule
 
 
@@ -57,13 +58,14 @@ endmodule
 //------------------------------------------------
 module controller(input logic ph1, ph2, reset, read, input_player, input_direction,
                   input logic [3:0] input_row, input_col,
-                  input logic [1:0] read_data[1:0],
-                  input logic [8:0] read_data_ss[1:0],
+                  input logic [1:0] read_data0, read_data1,
+                  input logic [8:0] read_data_ss0, read_data_ss1,
                   output logic [1:0] write_data,
                   output logic [8:0] write_data_ss, 
                   output logic [3:0] row_addr, col_addr,
                   output logic [2:0] ship_addr,
-                  output logic write_enable[1:0], write_enable_ss[1:0], data_ready,
+                  output logic write_enable0, write_enable1, write_enable_ss0, write_enable_ss1,
+                  output logic data_ready,
                   output logic [11:0] data_out);
     
     // Combinational logic bits, includes resets and enables for sequential logic/flops
@@ -170,16 +172,16 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
     // Assign values to inputs into flops
     // For row_addr_stage and col_addr_stage we need to either set to row/col, increment, or
     // set to the row/col output from the Ship Storage memroy (this only happends in GET_SHIP_INFO)
-    assign row_addr_stage = (state == GET_SHIP_INFO) ? read_data_ss[~player][8:5] : 
+    assign row_addr_stage = (state == GET_SHIP_INFO) ? (player ? read_data_ss0[8:5] : read_data_ss1[8:5]) : 
                                                        (row_addr_sel ? row_addr_set : row_addr_next);
     assign row_addr_stage_r = row_addr_sel ? row_addr_set_r : row_addr_next_r;
     assign row_addr_stage_en = row_addr_sel ? row_addr_set_en : row_addr_next_en;
-    assign col_addr_stage = (state == GET_SHIP_INFO) ? read_data_ss[~player][4:1] : 
+    assign col_addr_stage = (state == GET_SHIP_INFO) ? (player ? read_data_ss0[4:1] : read_data_ss1[4:1]) : 
                                                        (col_addr_sel ? col_addr_set : col_addr_next);
     assign col_addr_stage_r = col_addr_sel ? col_addr_set_r : col_addr_next_r;
     assign col_addr_stage_en = col_addr_sel ? col_addr_set_en : col_addr_next_en;
     assign player_next = input_player;
-    assign direction_next = (state == GET_SHIP_INFO) ? read_data_ss[~player][0] : input_direction;
+    assign direction_next = (state == GET_SHIP_INFO) ? (player ? read_data_ss0[0] : read_data_ss1[0]) : input_direction;
     assign expected_player_next = ~expected_player;
     assign size_next = size + 1'b1;
     assign ship_addr_next = ship_addr + 1'b1;
@@ -310,11 +312,11 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                         all_ships = 1'b0;
                         finished_ship = 1'b0;
                         write_data = EMPTY;
-                        write_enable[0] = 1'b0;
-                        write_enable[1] = 1'b0;
+                        write_enable0 = 1'b0;
+                        write_enable1 = 1'b0;
                         write_data_ss = 9'b0;
-                        write_enable_ss[0] = 1'b0;
-                        write_enable_ss[1] = 1'b0;
+                        write_enable_ss0 = 1'b0;
+                        write_enable_ss1 = 1'b0;
                         data_ready = 1'b0;
                         data_out = 12'b0;
                         row_addr_sel = 1'b0;
@@ -341,11 +343,11 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                         valid = 1'b0;
                         finished_ship = 1'b0;
                         write_data = EMPTY;
-                        write_enable[0] = 1'b1;
-                        write_enable[1] = 1'b1;
+                        write_enable0 = 1'b1;
+                        write_enable1 = 1'b1;
                         write_data_ss = 9'b0;
-                        write_enable_ss[0] = 1'b0;
-                        write_enable_ss[1] = 1'b0;
+                        write_enable_ss0 = 1'b0;
+                        write_enable_ss1 = 1'b0;
                         data_ready = 1'b0;
                         data_out = 12'b0;
                         row_addr_sel = 1'b0;
@@ -390,11 +392,11 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                         all_ships = 1'b0;
                         finished_ship = 1'b0;
                         write_data = EMPTY;
-                        write_enable[0] = 1'b0;
-                        write_enable[1] = 1'b0;
+                        write_enable0 = 1'b0;
+                        write_enable1 = 1'b0;
                         write_data_ss = 9'b0;
-                        write_enable_ss[0] = 1'b0;
-                        write_enable_ss[1] = 1'b0;
+                        write_enable_ss0 = 1'b0;
+                        write_enable_ss1 = 1'b0;
                         data_ready = 1'b0;
                         data_out = 12'b0;
                         row_addr_sel = 1'b0;
@@ -421,11 +423,11 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                         all_ships = 1'b0;
                         finished_ship = 1'b0;
                         write_data = EMPTY;
-                        write_enable[0] = 1'b0;
-                        write_enable[1] = 1'b0;
+                        write_enable0 = 1'b0;
+                        write_enable1 = 1'b0;
                         write_data_ss = 9'b0;
-                        write_enable_ss[0] = 1'b0;
-                        write_enable_ss[1] = 1'b0;
+                        write_enable_ss0 = 1'b0;
+                        write_enable_ss1 = 1'b0;
                         row_addr_sel = 1'b0;
                         col_addr_sel = 1'b0;
 
@@ -462,11 +464,11 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                         all_ships = 1'b0;
                         finished_ship = 1'b0;
                         write_data = EMPTY;
-                        write_enable[0] = 1'b0;
-                        write_enable[1] = 1'b0;
+                        write_enable0 = 1'b0;
+                        write_enable1 = 1'b0;
                         write_data_ss = 9'b0;
-                        write_enable_ss[0] = 1'b0;
-                        write_enable_ss[1] = 1'b0;
+                        write_enable_ss0 = 1'b0;
+                        write_enable_ss1 = 1'b0;
                         row_addr_sel = 1'b1;
                         col_addr_sel = 1'b1;
 
@@ -511,11 +513,11 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                         hit = 1'b0;
                         all_ships = 1'b0;
                         write_data = EMPTY;
-                        write_enable[0] = 1'b0;
+                        write_enable0 = 1'b0;
                         write_data_ss = 9'b0;
-                        write_enable_ss[0] = 1'b0;
-                        write_enable[1] = 1'b0;
-                        write_enable_ss[1] = 1'b0;
+                        write_enable_ss0 = 1'b0;
+                        write_enable1 = 1'b0;
+                        write_enable_ss1 = 1'b0;
 
                         player_bus = HOLD;
                         direction_bus = HOLD;
@@ -527,7 +529,22 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                         sunk_count_old_bus[0] = RESET;
                         sunk_count_old_bus[1] = RESET;
 
-                        if (read_data[player] != EMPTY) // Ship
+                        if (player && read_data1 != EMPTY) // Ship
+                            begin
+                                valid = 1'b0;           
+                                finished_ship = 1'b1;
+                                data_ready = 1'b1;
+                                data_out = {SHIP, 4'b1111, 4'b1111, player, 1'b0};
+                                row_addr_sel = 1'b0;
+                                col_addr_sel = 1'b0;
+
+                                size_bus = RESET;
+                                row_addr_set_bus = HOLD;
+                                col_addr_set_bus = HOLD;
+                                row_addr_next_bus = HOLD;
+                                col_addr_next_bus = HOLD;
+                            end
+                        else if (~player && read_data0 != EMPTY) // Ship
                             begin
                                 valid = 1'b0;           
                                 finished_ship = 1'b1;
@@ -630,17 +647,17 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
 
                                 if (player) // Set the write enables based on player
                                     begin
-                                        write_enable[0] = 1'b0;
-                                        write_enable[1] = 1'b1;
-                                        write_enable_ss[0] = 1'b0;
-                                        write_enable_ss[1] = 1'b1;
+                                        write_enable0 = 1'b0;
+                                        write_enable1 = 1'b1;
+                                        write_enable_ss0 = 1'b0;
+                                        write_enable_ss1 = 1'b1;
                                     end
                                 else
                                     begin
-                                        write_enable[0] = 1'b1;
-                                        write_enable[1] = 1'b0;
-                                        write_enable_ss[0] = 1'b1;
-                                        write_enable_ss[1] = 1'b0;
+                                        write_enable0 = 1'b1;
+                                        write_enable1 = 1'b0;
+                                        write_enable_ss0 = 1'b1;
+                                        write_enable_ss1 = 1'b0;
                                     end
                             end
                         else // Increment cells to write to memory
@@ -650,8 +667,8 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                                 all_ships = 1'b0;
                                 row_addr_sel = 1'b0;
                                 col_addr_sel = 1'b0;
-                                write_enable_ss[0] = 1'b0;
-                                write_enable_ss[1] = 1'b0;
+                                write_enable_ss0 = 1'b0;
+                                write_enable_ss1 = 1'b0;
 
                                 expected_player_bus = HOLD;
                                 size_bus = ENABLE;
@@ -672,13 +689,13 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
 
                                 if (player) // Set the write enables based on player
                                     begin
-                                        write_enable[1] = 1'b1;
-                                        write_enable[0] = 1'b0;
+                                        write_enable1 = 1'b1;
+                                        write_enable0 = 1'b0;
                                     end
                                 else
                                     begin
-                                        write_enable[0] = 1'b1;
-                                        write_enable[1] = 1'b0;
+                                        write_enable0 = 1'b1;
+                                        write_enable1 = 1'b0;
                                     end
                             end    
                     end
@@ -689,11 +706,11 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                         all_ships = 1'b0;
                         finished_ship = 1'b0;
                         write_data = EMPTY;
-                        write_enable[0] = 1'b0;
-                        write_enable[1] = 1'b0;
+                        write_enable0 = 1'b0;
+                        write_enable1 = 1'b0;
                         write_data_ss = 9'b0;
-                        write_enable_ss[0] = 1'b0;
-                        write_enable_ss[1] = 1'b0;
+                        write_enable_ss0 = 1'b0;
+                        write_enable_ss1 = 1'b0;
                         data_ready = 1'b0;
                         data_out = 12'b0;
                         row_addr_sel = 1'b0;
@@ -721,11 +738,11 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                         all_ships = 1'b0;
                         finished_ship = 1'b0;
                         write_data = EMPTY;
-                        write_enable[0] = 1'b0;
-                        write_enable[1] = 1'b0;
+                        write_enable0 = 1'b0;
+                        write_enable1 = 1'b0;
                         write_data_ss = 9'b0;
-                        write_enable_ss[0] = 1'b0;
-                        write_enable_ss[1] = 1'b0;
+                        write_enable_ss0 = 1'b0;
+                        write_enable_ss1 = 1'b0;
                         data_ready = 1'b0;
                         data_out = 12'b0;
                         row_addr_sel = 1'b0;
@@ -753,11 +770,11 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                         all_ships = 1'b0;
                         finished_ship = 1'b0;
                         write_data = EMPTY;
-                        write_enable[0] = 1'b0;
-                        write_enable[1] = 1'b0;
+                        write_enable0 = 1'b0;
+                        write_enable1 = 1'b0;
                         write_data_ss = 9'b0;
-                        write_enable_ss[0] = 1'b0;
-                        write_enable_ss[1] = 1'b0;
+                        write_enable_ss0 = 1'b0;
+                        write_enable_ss1 = 1'b0;
                         data_ready = 1'b0;
                         data_out = 12'b0;
                         row_addr_sel = 1'b0;
@@ -784,11 +801,11 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                         all_ships = 1'b0;
                         finished_ship = 1'b0;
                         write_data = EMPTY;
-                        write_enable[0] = 1'b0;
-                        write_enable[1] = 1'b0;
+                        write_enable0 = 1'b0;
+                        write_enable1 = 1'b0;
                         write_data_ss = 9'b0;
-                        write_enable_ss[0] = 1'b0;
-                        write_enable_ss[1] = 1'b0;
+                        write_enable_ss0 = 1'b0;
+                        write_enable_ss1 = 1'b0;
                         row_addr_sel = 1'b0;
                         col_addr_sel = 1'b0;
 
@@ -825,11 +842,11 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                         all_ships = 1'b0;
                         finished_ship = 1'b0;
                         write_data = EMPTY;
-                        write_enable[0] = 1'b0;
-                        write_enable[1] = 1'b0;
+                        write_enable0 = 1'b0;
+                        write_enable1 = 1'b0;
                         write_data_ss = 9'b0;
-                        write_enable_ss[0] = 1'b0;
-                        write_enable_ss[1] = 1'b0;
+                        write_enable_ss0 = 1'b0;
+                        write_enable_ss1 = 1'b0;
                         row_addr_sel = 1'b1;
                         col_addr_sel = 1'b1;
 
@@ -867,11 +884,11 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                         hit = 1'b0;
                         all_ships = 1'b0;
                         finished_ship = 1'b0;
-                        write_enable[0] = 1'b0;
-                        write_enable[1] = 1'b0;
+                        write_enable0 = 1'b0;
+                        write_enable1 = 1'b0;
                         write_data_ss = 9'b0;
-                        write_enable_ss[0] = 1'b0;
-                        write_enable_ss[1] = 1'b0;
+                        write_enable_ss0 = 1'b0;
+                        write_enable_ss1 = 1'b0;
                         row_addr_sel = 1'b1;
                         col_addr_sel = 1'b1;
                         data_ready = 1'b0;
@@ -893,17 +910,26 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                         sunk_count_old_bus[1] = HOLD;
                         
                         // Shot lands on empty, write miss, etc...
-                        if (read_data[~player] == EMPTY)        write_data = MISS;
-                        else if (read_data[~player] == SHIP)    write_data = HIT;
-                        else                                    write_data = EMPTY;
+                        if (player)
+                            begin
+                                if (read_data0 == EMPTY)        write_data = MISS;
+                                else if (read_data0 == SHIP)    write_data = HIT;
+                                else                                    write_data = EMPTY;
+                            end
+                        else
+                            begin
+                                if (read_data1 == EMPTY)        write_data = MISS;
+                                else if (read_data1 == SHIP)    write_data = HIT;
+                                else                                    write_data = EMPTY;
+                            end
                     end
                 CHECK_SHOT_VALID2: // Write shot data to memory, if miss/invalid set/send data_out
                     begin
                         all_ships = 1'b0;
                         finished_ship = 1'b0;
                         write_data_ss = 9'b0;
-                        write_enable_ss[0] = 1'b0;
-                        write_enable_ss[1] = 1'b0;
+                        write_enable_ss0 = 1'b0;
+                        write_enable_ss1 = 1'b0;
                         row_addr_sel = 1'b0;
                         col_addr_sel = 1'b0;
 
@@ -934,13 +960,13 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
 
                                 if (player)
                                     begin
-                                        write_enable[0] = 1'b1;
-                                        write_enable[1] = 1'b0;
+                                        write_enable0 = 1'b1;
+                                        write_enable1 = 1'b0;
                                     end
                                 else 
                                     begin
-                                        write_enable[1] = 1'b1;
-                                        write_enable[0] = 1'b0;
+                                        write_enable1 = 1'b1;
+                                        write_enable0 = 1'b0;
                                     end
                             end
                         else if (write_data == HIT)
@@ -954,21 +980,21 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
 
                                 if (player)
                                     begin
-                                        write_enable[0] = 1'b1;
-                                        write_enable[1] = 1'b0;
+                                        write_enable0 = 1'b1;
+                                        write_enable1 = 1'b0;
                                     end
                                 else 
                                     begin
-                                        write_enable[0] = 1'b0;
-                                        write_enable[1] = 1'b1;
+                                        write_enable0 = 1'b0;
+                                        write_enable1 = 1'b1;
                                     end
                             end
                         else // The cell has already be shot at
                             begin
                                 valid = 1'b0;
                                 hit = 1'b0;
-                                write_enable[0] = 1'b0;
-                                write_enable[1] = 1'b0;
+                                write_enable0 = 1'b0;
+                                write_enable1 = 1'b0;
                                 write_data = EMPTY;    
                                 data_ready = 1'b1;
                                 data_out = {SHIP, 4'b1111, 4'b1111, player, 1'b0};
@@ -982,11 +1008,11 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                         all_ships = 1'b0;
                         finished_ship = 1'b0;
                         write_data = EMPTY;
-                        write_enable[0] = 1'b0;
-                        write_enable[1] = 1'b0;
+                        write_enable0 = 1'b0;
+                        write_enable1 = 1'b0;
                         write_data_ss = 9'b0;
-                        write_enable_ss[0] = 1'b0;
-                        write_enable_ss[1] = 1'b0;
+                        write_enable_ss0 = 1'b0;
+                        write_enable_ss1 = 1'b0;
                         data_ready = 1'b0;
                         data_out = 12'b0;
                         row_addr_sel = 1'b1;
@@ -1012,11 +1038,11 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                         hit = 1'b0;
                         valid = 1'b0;
                         write_data = EMPTY;
-                        write_enable[0] = 1'b0;
-                        write_enable[1] = 1'b0;
+                        write_enable0 = 1'b0;
+                        write_enable1 = 1'b0;
                         write_data_ss = 9'b0;
-                        write_enable_ss[0] = 1'b0;
-                        write_enable_ss[1] = 1'b0;
+                        write_enable_ss0 = 1'b0;
+                        write_enable_ss1 = 1'b0;
                         data_ready = 1'b0;
                         data_out = 12'b0;
                         
@@ -1029,7 +1055,66 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                         sunk_count_old_bus[0] = HOLD;
                         sunk_count_old_bus[1] = HOLD;
 
-                        if (read_data[~player] == HIT)
+                        if (player && read_data0 == HIT)
+                            begin
+                                if (ship_addr == 3'b100 && size == ship_sizes[ship_addr]-1'b1) // last ship and last cell
+                                    begin
+                                        finished_ship = 1'b1;
+                                        sunk_count_bus = ENABLE;
+                                        all_ships = 1'b1;
+                                        row_addr_sel = 1'b1;
+                                        col_addr_sel = 1'b1;
+
+                                        size_bus = RESET;
+                                        ship_addr_bus = RESET;
+                                        row_addr_set_bus = ENABLE;
+                                        col_addr_set_bus = ENABLE;
+                                        row_addr_next_bus = HOLD;
+                                        col_addr_next_bus = HOLD;
+                                    end
+                                else if (size == ship_sizes[ship_addr]-1'b1) // lest cell
+                                    begin
+                                        finished_ship = 1'b1;
+                                        sunk_count_bus = ENABLE;
+                                        all_ships = 1'b0;
+                                        row_addr_sel = 1'b0;
+                                        col_addr_sel = 1'b0;
+                                        
+                                        size_bus = RESET;
+                                        ship_addr_bus = ENABLE;
+                                        row_addr_set_bus = HOLD;
+                                        col_addr_set_bus = HOLD;
+                                        row_addr_next_bus = HOLD;
+                                        col_addr_next_bus = HOLD;
+
+                                    end
+                                else // not the last cell, so continue
+                                    begin
+                                        finished_ship = 1'b0;
+                                        sunk_count_bus = HOLD;
+                                        all_ships = 1'b0;
+                                        row_addr_sel = 1'b0;
+                                        col_addr_sel = 1'b0;
+                                        
+                                        size_bus = ENABLE;
+                                        ship_addr_bus = HOLD;
+                                        row_addr_set_bus = HOLD;
+                                        col_addr_set_bus = HOLD;
+                        
+                                        if (direction) 
+                                            begin
+                                                row_addr_next_bus = HOLD;
+                                                col_addr_next_bus = ENABLE;
+                                            end
+                                        // vertical
+                                        else
+                                            begin
+                                                row_addr_next_bus = ENABLE;
+                                                col_addr_next_bus = HOLD;
+                                            end
+                                    end
+                            end
+                        else if (~player && read_data1 == HIT)
                             begin
                                 if (ship_addr == 3'b100 && size == ship_sizes[ship_addr]-1'b1) // last ship and last cell
                                     begin
@@ -1127,11 +1212,11 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                         all_ships = 1'b0;
                         finished_ship = 1'b0;
                         write_data = EMPTY;
-                        write_enable[0] = 1'b0;
-                        write_enable[1] = 1'b0;
+                        write_enable0 = 1'b0;
+                        write_enable1 = 1'b0;
                         write_data_ss = 9'b0;
-                        write_enable_ss[0] = 1'b0;
-                        write_enable_ss[1] = 1'b0;
+                        write_enable_ss0 = 1'b0;
+                        write_enable_ss1 = 1'b0;
                         data_ready = 1'b1;
                         row_addr_sel = 1'b0;
                         col_addr_sel = 1'b0;
@@ -1170,11 +1255,11 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                         all_ships = 1'b0;
                         finished_ship = 1'b0;
                         write_data = EMPTY;
-                        write_enable[0] = 1'b0;
-                        write_enable[1] = 1'b0;
+                        write_enable0 = 1'b0;
+                        write_enable1 = 1'b0;
                         write_data_ss = 9'b0;
-                        write_enable_ss[0] = 1'b0;
-                        write_enable_ss[1] = 1'b0;
+                        write_enable_ss0 = 1'b0;
+                        write_enable_ss1 = 1'b0;
                         data_ready = 1'b1;
                         row_addr_sel = 1'b0;
                         col_addr_sel = 1'b0;
@@ -1204,11 +1289,11 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                         all_ships = 1'b0;
                         finished_ship = 1'b0;
                         write_data = EMPTY;
-                        write_enable[0] = 1'b0;
-                        write_enable[1] = 1'b0;
+                        write_enable0 = 1'b0;
+                        write_enable1 = 1'b0;
                         write_data_ss = 9'b0;
-                        write_enable_ss[0] = 1'b0;
-                        write_enable_ss[1] = 1'b0;
+                        write_enable_ss0 = 1'b0;
+                        write_enable_ss1 = 1'b0;
                         data_ready = 1'b0;
                         data_out = 12'b0;
                         row_addr_sel = 1'b0;
