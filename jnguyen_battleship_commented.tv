@@ -82,10 +82,10 @@
 0_1_0_0_1001_1000_01_1001_1000_1_0 // Player 1 miss Player 2 at (9,8)
 0_1_1_0_0001_0110_10_0001_0110_0_0 // Player 2 hits Player 1 at (1,6)
 0_1_0_0_1000_1001_10_1000_1001_1_1 // Player 1 hits Player 2 at (8,9), sinks the 2x1
-0_1_1_0_0001_0110_10_0001_0110_0_0 // Player 2 hits Player 1 at (1,6)
-0_1_0_0_0000_0001_11_1111_1111_1_0 // Player 1 invalid shot at (0,1), was previously a miss
+0_1_1_0_0110_0111_01_0110_0111_0_0 // Player 2 miss Player 1 at (6,7)
+0_1_0_0_0000_0001_11_1111_1111_0_0 // Player 1 invalid shot at (0,1), was previously a miss
 0_1_1_0_0000_0000_10_1111_1111_0_0 // wrong player
-0_1_0_0_0001_0000_11_1111_1111_1_0 // Player 1 invalid shot at (1,0), was previously a hit
+0_1_0_0_0001_0000_11_1111_1111_0_0 // Player 1 invalid shot at (1,0), was previously a hit
 0_1_0_0_1001_0000_01_1001_0000_1_0 // Player 1 miss Player 2 at (9,0)
 0_1_1_0_0001_0101_10_0001_0101_0_0 // Player 2 hits Player 1 at (1,5)
 0_1_0_0_1000_0100_01_1000_0100_1_0 // Player 1 miss Player 2 at (8,4)
@@ -102,9 +102,9 @@
 0_1_1_0_0011_0001_10_0011_0001_0_0 // Player 2 hits Player 1 at (3,1)
 0_1_0_0_0010_0101_10_0010_0101_1_0 // Player 1 hits Player 2 at (2,5)
 0_1_1_0_0100_0001_10_0100_0001_0_0 // Player 2 hits Player 1 at (4,1)
-0_1_0_0_0010_0110_10_0010_0110_1_0 // Player 1 hits Player 2 at (2,6)
+0_1_0_0_0010_0110_10_0010_0110_1_1 // Player 1 hits Player 2 at (2,6), sinks the 3x1
 0_1_1_0_0101_0001_10_0101_0001_0_0 // Player 2 hits Player 1 at (5,1)
-0_1_0_0_0010_0111_10_0010_0111_1_1 // Player 1 hits Player 2 at (2,7), sinks the 3x1
+0_1_0_0_0010_0111_10_0010_0111_1_0 // Player 1 hits Player 2 at (2,7)
 0_1_1_0_0110_0001_10_0110_0001_0_1 // Player 2 hits Player 1 at (6,1), sinks the 4x1
 0_1_0_0_0001_0111_10_0001_0111_1_0 // Player 1 hits Player 2 at (1,7)
 0_1_1_0_0110_0010_10_0110_0010_0_0 // Player 2 hits Player 1 at (6,2)
