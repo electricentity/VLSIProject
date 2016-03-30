@@ -19,7 +19,7 @@ module battleship(input logic ph1, ph2, reset, read, player, direction,
                   output logic [11:0] data_out);
 
     // Wires to go to the inputs/outputs of each instantiation
-    logic [1:0] write_enable, write_enable_ss;
+    logic write_enable0, write_enable1, write_enable_ss0, write_enable_ss1;
     logic [1:0] write_data; 
     logic [1:0] read_data0, read_data1; // Only 1 write_data b/c of seperate write enables
     logic [2:0] ship_addr;                  // 5 ships total
@@ -70,7 +70,7 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
     
     // Combinational logic bits, includes resets and enables for sequential logic/flops
     logic valid, expected_player, finished_ship, hit, all_ships, player, direction;
-    logic [2:0] size, sunk_count, sunk_count_old[1:0]; // counters
+    logic [2:0] size, sunk_count, sunk_count_old0, sunk_count_old1; // counters
     logic [3:0] row, col;
     logic [4:0] state, nextstate;
     logic [2:0] ship_sizes[4:0] = '{3'b010, 3'b011, 3'b011, 3'b100, 3'b101}; // Set up ship sizes, arbitrary order
@@ -80,7 +80,7 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
     logic [2:0] size_next, ship_addr_next; // counter
     logic [3:0] row_next, col_next, row_addr_set, col_addr_set, row_addr_stage;
     logic [3:0] row_addr_next, col_addr_next, col_addr_stage;
-    logic [2:0] sunk_count_next, sunk_count_old_next[1:0];
+    logic [2:0] sunk_count_next, sunk_count_old_next0, sunk_count_old_next1;
 
     // Enables
     logic row_addr_stage_en, col_addr_stage_en;
@@ -88,7 +88,7 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
     logic size_en, ship_addr_en; // counter
     logic row_en, col_en, row_addr_set_en, col_addr_set_en;
     logic row_addr_next_en, col_addr_next_en;
-    logic sunk_count_en, sunk_count_old_en[1:0];
+    logic sunk_count_en, sunk_count_old_en0, sunk_count_old_en1;
 
     // Resets
     logic row_addr_stage_r, col_addr_stage_r;
@@ -96,14 +96,14 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
     logic size_r, ship_addr_r; // counter
     logic row_r, col_r, row_addr_set_r, col_addr_set_r;
     logic row_addr_next_r, col_addr_next_r;
-    logic sunk_count_r, sunk_count_old_r[1:0];
+    logic sunk_count_r, sunk_count_old_r0, sunk_count_old_r1;
 
     // Buses represent {enable, reset}
     logic [1:0] player_bus, direction_bus, expected_player_bus;
     logic [1:0] size_bus, ship_addr_bus; // counter
     logic [1:0] row_bus, col_bus, row_addr_set_bus, col_addr_set_bus;
     logic [1:0] row_addr_next_bus, col_addr_next_bus;
-    logic [1:0] sunk_count_bus, sunk_count_old_bus[1:0];
+    logic [1:0] sunk_count_bus, sunk_count_old_bus0, sunk_count_old_bus1;
 
     // GLOBAL VARIABLES
     parameter RESET = 2'b01;
@@ -149,8 +149,8 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
     assign {col_addr_set_en, col_addr_set_r} = col_addr_set_bus;
     assign {col_addr_next_en, col_addr_next_r} = col_addr_next_bus;
     assign {sunk_count_en, sunk_count_r} = sunk_count_bus;
-    assign {sunk_count_old_en[0], sunk_count_old_r[0]} = sunk_count_old_bus[0];
-    assign {sunk_count_old_en[1], sunk_count_old_r[1]} = sunk_count_old_bus[1];
+    assign {sunk_count_old_en0, sunk_count_old_r0} = sunk_count_old_bus0;
+    assign {sunk_count_old_en1, sunk_count_old_r1} = sunk_count_old_bus1;
 
     // State nextstate flop
     flopenr #5 statereg(ph1, ph2, reset, 1'b1, nextstate, state);
@@ -166,8 +166,8 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
     flopenr #4 row_addrreg(ph1, ph2, row_addr_stage_r, row_addr_stage_en, row_addr_stage, row_addr);
     flopenr #4 col_addrreg(ph1, ph2, col_addr_stage_r, col_addr_stage_en, col_addr_stage, col_addr);
     flopenr #3 sunk_countreg(ph1, ph2, sunk_count_r, sunk_count_en, sunk_count_next, sunk_count);
-    flopenr #3 sunk_count_oldreg(ph1, ph2, sunk_count_old_r[0], sunk_count_old_en[0], sunk_count_old_next[0], sunk_count_old[0]);
-    flopenr #3 sunk_count_old2reg(ph1, ph2, sunk_count_old_r[1], sunk_count_old_en[1], sunk_count_old_next[1], sunk_count_old[1]);
+    flopenr #3 sunk_count_oldreg(ph1, ph2, sunk_count_old_r0, sunk_count_old_en0, sunk_count_old_next0, sunk_count_old0);
+    flopenr #3 sunk_count_old2reg(ph1, ph2, sunk_count_old_r1, sunk_count_old_en1, sunk_count_old_next1, sunk_count_old1);
 
     // Assign values to inputs into flops
     // For row_addr_stage and col_addr_stage we need to either set to row/col, increment, or
@@ -192,8 +192,8 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
     assign col_addr_set = col;
     assign col_addr_next = col_addr + 1'b1;
     assign sunk_count_next = sunk_count + 1'b1;
-    assign sunk_count_old_next[0] = sunk_count;
-    assign sunk_count_old_next[1] = sunk_count;
+    assign sunk_count_old_next0 = sunk_count;
+    assign sunk_count_old_next1 = sunk_count;
 
 
 
@@ -334,8 +334,8 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                         row_addr_next_bus = RESET;
                         col_addr_next_bus = RESET;
                         sunk_count_bus = RESET;
-                        sunk_count_old_bus[0] = RESET;
-                        sunk_count_old_bus[1] = RESET;
+                        sunk_count_old_bus0 = RESET;
+                        sunk_count_old_bus1 = RESET;
                     end 
                 RESET_MEMORY:
                     begin
@@ -363,8 +363,8 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                         row_addr_set_bus = RESET;
                         col_addr_set_bus = RESET;
                         sunk_count_bus = RESET;
-                        sunk_count_old_bus[0] = RESET;
-                        sunk_count_old_bus[1] = RESET;
+                        sunk_count_old_bus0 = RESET;
+                        sunk_count_old_bus1 = RESET;
 
                         if(row_addr == 4'b1001 && col_addr == 4'b1001) // if both row and col have been fully reset
                             begin
@@ -414,8 +414,8 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                         row_addr_next_bus = RESET;
                         col_addr_next_bus = RESET;
                         sunk_count_bus = RESET;
-                        sunk_count_old_bus[0] = RESET;
-                        sunk_count_old_bus[1] = RESET;
+                        sunk_count_old_bus0 = RESET;
+                        sunk_count_old_bus1 = RESET;
                     end
                 CHECK_PLAYER: // Set valid based on the player/expected_player equality
                     begin
@@ -443,8 +443,8 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                         row_addr_next_bus = RESET;
                         col_addr_next_bus = RESET;
                         sunk_count_bus = RESET;
-                        sunk_count_old_bus[0] = RESET;
-                        sunk_count_old_bus[1] = RESET;
+                        sunk_count_old_bus0 = RESET;
+                        sunk_count_old_bus1 = RESET;
 
                         data_out = {HIT, 4'b1111, 4'b1111, ~player, 1'b0};
                         if (player == expected_player) 
@@ -484,8 +484,8 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                         row_addr_set_bus = ENABLE;
                         col_addr_set_bus = ENABLE;
                         sunk_count_bus = RESET;
-                        sunk_count_old_bus[0] = RESET;
-                        sunk_count_old_bus[1] = RESET;
+                        sunk_count_old_bus0 = RESET;
+                        sunk_count_old_bus1 = RESET;
                         // Check that ship fits if direction is horizontal
                         if (direction && row < 4'd10 && col <= (10-ship_sizes[ship_addr]))
                             begin
@@ -526,8 +526,8 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                         row_bus = HOLD;
                         col_bus = HOLD;
                         sunk_count_bus = RESET;
-                        sunk_count_old_bus[0] = RESET;
-                        sunk_count_old_bus[1] = RESET;
+                        sunk_count_old_bus0 = RESET;
+                        sunk_count_old_bus1 = RESET;
 
                         if (player && read_data1 != EMPTY) // Ship
                             begin
@@ -612,8 +612,8 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                         row_bus = HOLD;
                         col_bus = HOLD;
                         sunk_count_bus = RESET;
-                        sunk_count_old_bus[0] = RESET;
-                        sunk_count_old_bus[1] = RESET;
+                        sunk_count_old_bus0 = RESET;
+                        sunk_count_old_bus1 = RESET;
 
                         data_out = {SHIP, row_addr, col_addr, player, 1'b0};
 
@@ -728,8 +728,8 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                         row_addr_next_bus = HOLD;
                         col_addr_next_bus = HOLD;
                         sunk_count_bus = HOLD;
-                        sunk_count_old_bus[0] = HOLD;
-                        sunk_count_old_bus[1] = HOLD;
+                        sunk_count_old_bus0 = HOLD;
+                        sunk_count_old_bus1 = HOLD;
                     end 
                 GAME_START: // Reset everything/set all to 0's
                     begin
@@ -760,8 +760,8 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                         row_addr_next_bus = RESET;
                         col_addr_next_bus = RESET;
                         sunk_count_bus = RESET;
-                        sunk_count_old_bus[0] = RESET;
-                        sunk_count_old_bus[1] = RESET;
+                        sunk_count_old_bus0 = RESET;
+                        sunk_count_old_bus1 = RESET;
                     end 
                 LOAD_SHOT_DATA: // Wait for player input, save player inputs and check valid player on next state
                     begin
@@ -792,8 +792,8 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                         row_addr_next_bus = RESET;
                         col_addr_next_bus = RESET;
                         sunk_count_bus = RESET;
-                        sunk_count_old_bus[0] = HOLD;
-                        sunk_count_old_bus[1] = HOLD;     
+                        sunk_count_old_bus0 = HOLD;
+                        sunk_count_old_bus1 = HOLD;     
                     end
                 CHECK_PLAYER2:  // Set valid based on the player/expected_player equality
                     begin
@@ -821,8 +821,8 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                         row_addr_next_bus = RESET;
                         col_addr_next_bus = RESET;
                         sunk_count_bus = HOLD;
-                        sunk_count_old_bus[0] = HOLD;
-                        sunk_count_old_bus[1] = HOLD;
+                        sunk_count_old_bus0 = HOLD;
+                        sunk_count_old_bus1 = HOLD;
 
                         data_out = {HIT, 4'b1111, 4'b1111, ~player, 1'b0};
                         if (player == expected_player) 
@@ -862,8 +862,8 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                         row_addr_set_bus = ENABLE;
                         col_addr_set_bus = ENABLE;
                         sunk_count_bus = HOLD;
-                        sunk_count_old_bus[0] = HOLD;
-                        sunk_count_old_bus[1] = HOLD;
+                        sunk_count_old_bus0 = HOLD;
+                        sunk_count_old_bus1 = HOLD;
                         // Shot is within board
                         if (row < 4'd10 && col < 4'd10)
                             begin
@@ -906,8 +906,8 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                         row_addr_set_bus = ENABLE;
                         col_addr_set_bus = ENABLE;
                         sunk_count_bus = HOLD;
-                        sunk_count_old_bus[0] = HOLD;
-                        sunk_count_old_bus[1] = HOLD;
+                        sunk_count_old_bus0 = HOLD;
+                        sunk_count_old_bus1 = HOLD;
                         
                         // Shot lands on empty, write miss, etc...
                         if (player)
@@ -944,8 +944,8 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                         row_addr_next_bus = HOLD;
                         col_addr_next_bus = HOLD;
                         sunk_count_bus = HOLD;
-                        sunk_count_old_bus[0] = HOLD;
-                        sunk_count_old_bus[1] = HOLD;
+                        sunk_count_old_bus0 = HOLD;
+                        sunk_count_old_bus1 = HOLD;
                         
 
                         if (write_data == MISS)
@@ -1030,8 +1030,8 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                         row_addr_next_bus = HOLD;
                         col_addr_next_bus = HOLD;
                         sunk_count_bus = HOLD;
-                        sunk_count_old_bus[0] = HOLD;
-                        sunk_count_old_bus[1] = HOLD;
+                        sunk_count_old_bus0 = HOLD;
+                        sunk_count_old_bus1 = HOLD;
                     end
                 CHECK_SUNK: // Go through the ship to see if all cells have been hit
                     begin
@@ -1052,8 +1052,8 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                         expected_player_bus = HOLD;
                         row_bus = HOLD;
                         col_bus = HOLD;
-                        sunk_count_old_bus[0] = HOLD;
-                        sunk_count_old_bus[1] = HOLD;
+                        sunk_count_old_bus0 = HOLD;
+                        sunk_count_old_bus1 = HOLD;
 
                         if (player && read_data0 == HIT)
                             begin
@@ -1236,16 +1236,17 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
 
                         if(player) // Set the appropriate sunk_count_old from sunk_count
                             begin
-                                sunk_count_old_bus[0] = ENABLE;
-                                sunk_count_old_bus[1] = HOLD;
+                                sunk_count_old_bus0 = ENABLE;
+                                sunk_count_old_bus1 = HOLD;
                             end
                         else
                             begin
-                                sunk_count_old_bus[0] = HOLD;
-                                sunk_count_old_bus[1] = ENABLE;
+                                sunk_count_old_bus0 = HOLD;
+                                sunk_count_old_bus1 = ENABLE;
                             end
 
-                        if (sunk_count != sunk_count_old[~player])  data_out = {HIT, row_addr, col_addr, ~player, 1'b1};
+                        if (player && sunk_count != sunk_count_old0)  data_out = {HIT, row_addr, col_addr, ~player, 1'b1};
+                        else  if (~player && sunk_count != sunk_count_old1)  data_out = {HIT, row_addr, col_addr, ~player, 1'b1};
                         else data_out = {HIT, row_addr, col_addr, ~player, 1'b0};
                     end
                 GAME_OVER: // Set output for the player who won
@@ -1276,8 +1277,8 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                         row_addr_next_bus = RESET;
                         col_addr_next_bus = RESET;
                         sunk_count_bus = RESET;
-                        sunk_count_old_bus[0] = RESET;
-                        sunk_count_old_bus[1] = RESET;
+                        sunk_count_old_bus0 = RESET;
+                        sunk_count_old_bus1 = RESET;
 
                         data_out = {MISS, 4'b1111, 4'b1111, player, 1'b0};
 
@@ -1311,8 +1312,8 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                         row_addr_next_bus = RESET;
                         col_addr_next_bus = RESET;
                         sunk_count_bus = RESET;
-                        sunk_count_old_bus[0] = RESET;
-                        sunk_count_old_bus[1] = RESET;
+                        sunk_count_old_bus0 = RESET;
+                        sunk_count_old_bus1 = RESET;
                     end 
             endcase
         end
@@ -1515,7 +1516,7 @@ module testbench();
 
     // read test vector file and initialize test
     initial begin
-        $readmemb("mreeve_battleship.tv", vectors);
+        $readmemb("jnguyen_battleship.tv", vectors);
         vectornum = 0; errors = 0;
         #5; reset = 1; #5; reset = 0;
     end
