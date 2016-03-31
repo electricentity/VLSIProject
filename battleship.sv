@@ -73,7 +73,7 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
     logic [2:0] size, sunk_count, sunk_count_old0, sunk_count_old1; // counters
     logic [3:0] row, col;
     logic [4:0] state, nextstate;
-    logic [2:0] ship_sizes[4:0] = '{3'b010, 3'b011, 3'b011, 3'b100, 3'b101}; // Set up ship sizes, arbitrary order
+    logic [2:0] ship_sizes; //= '{3'b010, 3'b011, 3'b011, 3'b100, 3'b101}; // Set up ship sizes, arbitrary order
 
     // Inputs into the flops
     logic player_next, direction_next, expected_player_next, row_addr_sel, col_addr_sel;
@@ -135,6 +135,16 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
     parameter CHECK_ALL_SUNK    = 5'b10000;
     parameter GAME_OVER         = 5'b10001;
 
+
+    always_comb
+        begin
+            if (ship_addr == 3'b000) ship_sizes = 3'b101;
+            else if (ship_addr == 3'b001) ship_sizes = 3'b100;
+            else if (ship_addr == 3'b010) ship_sizes = 3'b011;
+            else if (ship_addr == 3'b011) ship_sizes = 3'b011;
+            else if (ship_addr == 3'b100) ship_sizes = 3'b010;
+            else ship_sizes = 3'b100;
+        end
 
     // Break buses
     assign {player_en, player_r} = player_bus;
@@ -487,14 +497,14 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                         sunk_count_old_bus0 = RESET;
                         sunk_count_old_bus1 = RESET;
                         // Check that ship fits if direction is horizontal
-                        if (direction && row < 4'd10 && col <= (10-ship_sizes[ship_addr]))
+                        if (direction && row < 4'd10 && col <= (10-ship_sizes))
                             begin
                                 valid = 1'b1;
                                 data_ready = 1'b0;
                                 data_out = 12'b0;
                             end 
                         // Check that ship fits if the direction is vertical
-                        else if (~direction && col <= 4'd10 && row <= (10-ship_sizes[ship_addr])) 
+                        else if (~direction && col <= 4'd10 && row <= (10-ship_sizes)) 
                             begin
                                 valid = 1'b1;
                                 data_ready = 1'b0;
@@ -559,7 +569,7 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                                 row_addr_next_bus = HOLD;
                                 col_addr_next_bus = HOLD;
                             end
-                        else if (size == ship_sizes[ship_addr] - 1'b1) // Last cell, no ships
+                        else if (size == ship_sizes - 1'b1) // Last cell, no ships
                             begin
                                 valid = 1'b1;
                                 finished_ship = 1'b1;
@@ -617,7 +627,7 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
 
                         data_out = {SHIP, row_addr, col_addr, player, 1'b0};
 
-                        if (size == ship_sizes[ship_addr] - 1'b1) // Last cell of ship
+                        if (size == ship_sizes - 1'b1) // Last cell of ship
                             begin
                                 finished_ship = 1'b1;
                                 write_data = SHIP;
@@ -1057,7 +1067,7 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
 
                         if (player && read_data0 == HIT)
                             begin
-                                if (ship_addr == 3'b100 && size == ship_sizes[ship_addr]-1'b1) // last ship and last cell
+                                if (ship_addr == 3'b100 && size == ship_sizes-1'b1) // last ship and last cell
                                     begin
                                         finished_ship = 1'b1;
                                         sunk_count_bus = ENABLE;
@@ -1072,7 +1082,7 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                                         row_addr_next_bus = HOLD;
                                         col_addr_next_bus = HOLD;
                                     end
-                                else if (size == ship_sizes[ship_addr]-1'b1) // lest cell
+                                else if (size == ship_sizes-1'b1) // lest cell
                                     begin
                                         finished_ship = 1'b1;
                                         sunk_count_bus = ENABLE;
@@ -1116,7 +1126,7 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                             end
                         else if (~player && read_data1 == HIT)
                             begin
-                                if (ship_addr == 3'b100 && size == ship_sizes[ship_addr]-1'b1) // last ship and last cell
+                                if (ship_addr == 3'b100 && size == ship_sizes-1'b1) // last ship and last cell
                                     begin
                                         finished_ship = 1'b1;
                                         sunk_count_bus = ENABLE;
@@ -1131,7 +1141,7 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                                         row_addr_next_bus = HOLD;
                                         col_addr_next_bus = HOLD;
                                     end
-                                else if (size == ship_sizes[ship_addr]-1'b1) // lest cell
+                                else if (size == ship_sizes-1'b1) // lest cell
                                     begin
                                         finished_ship = 1'b1;
                                         sunk_count_bus = ENABLE;
