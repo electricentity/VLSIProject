@@ -134,6 +134,9 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
     parameter CHECK_SUNK        = 5'b01111;
     parameter CHECK_ALL_SUNK    = 5'b10000;
     parameter GAME_OVER         = 5'b10001;
+    parameter MARK_MISS         = 5'b10010;
+    parameter MARK_HIT          = 5'b10011;
+    parameter MARK_INVALID      = 5'b10100;
 
 
     always_comb
@@ -280,13 +283,25 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                         else       nextstate = LOAD_SHOT_DATA;
                     end
                 // Check if shot is valid, set up write_data accordingly
-                CHECK_SHOT_VALID: nextstate = CHECK_SHOT_VALID2;
-                // Write shot data to memory, send out signal to fpga if shot is invalid or miss
-                CHECK_SHOT_VALID2: 
+                CHECK_SHOT_VALID: 
                     begin
-                        if (hit) nextstate = GET_SHIP_INFO;
-                        else     nextstate = LOAD_SHOT_DATA;
+                        if (player)
+                            begin
+                                if (read_data0 == EMPTY)        nextstate = MARK_MISS;
+                                else if (read_data0 == SHIP)    nextstate = MARK_HIT;
+                                else                            nextstate = MARK_INVALID;
+                            end
+                        else
+                            begin
+                                if (read_data1 == EMPTY)        nextstate = MARK_MISS;
+                                else if (read_data1 == SHIP)    nextstate = MARK_HIT;
+                                else                            nextstate = MARK_INVALID;
+                            end
                     end
+                // Write shot data to memory, send out signal to fpga if shot is invalid or miss
+                MARK_HIT: nextstate = GET_SHIP_INFO;
+                MARK_MISS: nextstate = LOAD_SHOT_DATA;
+                MARK_INVALID: nextstate = LOAD_SHOT_DATA;
                 // Get the info for the position of the next ship to check
                 GET_SHIP_INFO: nextstate = CHECK_SUNK;
                 // Check if a ship has been sunk
@@ -894,6 +909,7 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                         hit = 1'b0;
                         all_ships = 1'b0;
                         finished_ship = 1'b0;
+                        write_data = MISS;
                         write_enable0 = 1'b0;
                         write_enable1 = 1'b0;
                         write_data_ss = 9'b0;
@@ -918,7 +934,8 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                         sunk_count_bus = HOLD;
                         sunk_count_old_bus0 = HOLD;
                         sunk_count_old_bus1 = HOLD;
-                        
+                    end
+                        /*
                         // Shot lands on empty, write miss, etc...
                         if (player)
                             begin
@@ -932,7 +949,7 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                                 else if (read_data1 == SHIP)    write_data = HIT;
                                 else                                    write_data = EMPTY;
                             end
-                    end
+                    end 
                 CHECK_SHOT_VALID2: // Write shot data to memory, if miss/invalid set/send data_out
                     begin
                         all_ships = 1'b0;
@@ -1010,6 +1027,125 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                                 data_out = {SHIP, 4'b1111, 4'b1111, player, 1'b0};
                                 expected_player_bus = HOLD;
                             end
+                    end */
+                MARK_MISS: // Set output for the player who won
+                    begin
+                        hit = 1'b0;
+                        valid = 1'b1;
+                        all_ships = 1'b0;
+                        finished_ship = 1'b0;
+                        write_data = MISS;
+                        write_data_ss = 9'b0;
+                        write_enable_ss0 = 1'b0;
+                        write_enable_ss1 = 1'b0;
+                        data_ready = 1'b1;
+                        row_addr_sel = 1'b0;
+                        col_addr_sel = 1'b0;
+
+                        player_bus = HOLD;
+                        direction_bus = HOLD;
+                        expected_player_bus = ENABLE;
+                        size_bus = RESET;
+                        ship_addr_bus = HOLD;
+                        row_bus = HOLD;
+                        col_bus = HOLD;
+                        row_addr_set_bus = HOLD;
+                        col_addr_set_bus = HOLD;
+                        row_addr_next_bus = HOLD;
+                        col_addr_next_bus = HOLD;
+                        sunk_count_bus = HOLD;
+                        sunk_count_old_bus0 = HOLD;
+                        sunk_count_old_bus1 = HOLD;
+
+                        data_out = {MISS, row_addr, col_addr, ~player, 1'b0};
+
+                        expected_player_bus = ENABLE;
+
+                        if (player)
+                            begin
+                                write_enable0 = 1'b1;
+                                write_enable1 = 1'b0;
+                            end
+                        else 
+                            begin
+                                write_enable1 = 1'b1;
+                                write_enable0 = 1'b0;
+                            end
+
+                    end
+                MARK_HIT: // Set output for the player who won
+                    begin
+                        hit = 1'b1;
+                        valid = 1'b1;
+                        all_ships = 1'b0;
+                        finished_ship = 1'b0;
+                        write_data = HIT;
+                        write_data_ss = 9'b0;
+                        write_enable_ss0 = 1'b0;
+                        write_enable_ss1 = 1'b0;
+                        data_ready = 1'b0;
+                        data_out = 12'b0;
+                        row_addr_sel = 1'b0;
+                        col_addr_sel = 1'b0;
+
+                        player_bus = HOLD;
+                        direction_bus = HOLD;
+                        expected_player_bus = ENABLE;
+                        size_bus = RESET;
+                        ship_addr_bus = HOLD;
+                        row_bus = HOLD;
+                        col_bus = HOLD;
+                        row_addr_set_bus = HOLD;
+                        col_addr_set_bus = HOLD;
+                        row_addr_next_bus = HOLD;
+                        col_addr_next_bus = HOLD;
+                        sunk_count_bus = HOLD;
+                        sunk_count_old_bus0 = HOLD;
+                        sunk_count_old_bus1 = HOLD;
+
+                        if (player)
+                            begin
+                                write_enable0 = 1'b1;
+                                write_enable1 = 1'b0;
+                            end
+                        else 
+                            begin
+                                write_enable0 = 1'b0;
+                                write_enable1 = 1'b1;
+                            end
+
+                    end
+                MARK_INVALID:
+                    begin
+                        hit = 1'b0;
+                        valid = 1'b0;
+                        all_ships = 1'b0;
+                        finished_ship = 1'b0;
+                        write_data = EMPTY;
+                        write_enable0 = 1'b0;
+                        write_enable1 = 1'b0;
+                        write_data_ss = 9'b0;
+                        write_enable_ss0 = 1'b0;
+                        write_enable_ss1 = 1'b0;
+                        data_ready = 1'b1;
+                        data_out = {SHIP, 4'b1111, 4'b1111, player, 1'b0};
+                        row_addr_sel = 1'b0;
+                        col_addr_sel = 1'b0;
+
+                        player_bus = HOLD;
+                        direction_bus = HOLD;
+                        expected_player_bus = HOLD;
+                        size_bus = RESET;
+                        ship_addr_bus = HOLD;
+                        row_bus = HOLD;
+                        col_bus = HOLD;
+                        row_addr_set_bus = HOLD;
+                        col_addr_set_bus = HOLD;
+                        row_addr_next_bus = HOLD;
+                        col_addr_next_bus = HOLD;
+                        sunk_count_bus = HOLD;
+                        sunk_count_old_bus0 = HOLD;
+                        sunk_count_old_bus1 = HOLD;
                     end
                 GET_SHIP_INFO: // Read the Ship Storage information for the given player and ship
                     begin
