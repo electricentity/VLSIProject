@@ -69,7 +69,7 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                   output logic [11:0] data_out);
     
     // Combinational logic bits, includes resets and enables for sequential logic/flops
-    logic valid, expected_player, finished_ship, hit, all_ships, player, direction;
+    logic valid, expected_player, finished_ship, all_ships, player, direction;
     logic [2:0] size, sunk_count, sunk_count_old0, sunk_count_old1; // counters
     logic [3:0] row, col;
     logic [4:0] state, nextstate;
@@ -213,117 +213,119 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
     // nextstate logic
     always_comb
         begin
-            case(state)
-                // Reset/set all values as necessary
-                INITIAL_START: nextstate = RESET_MEMORY;
-                // Reset the grid memory, don't need to reset Ship Storage because we will write over it
-                RESET_MEMORY: 
-                    begin
-                        if (all_ships) nextstate = LOAD_SHIP_DATA;
-                        else      nextstate = RESET_MEMORY;
-                    end
-                // Load in player inputs and save them, reset some values
-                LOAD_SHIP_DATA:
-                    begin
-                        if (read) nextstate = CHECK_PLAYER;
-                        else      nextstate = LOAD_SHIP_DATA;
-                    end
-                // Check that the correct player is inputting, set valid
-                CHECK_PLAYER:
-                    begin
-                        if (valid) nextstate = ON_BOARD_CHECK;
-                        else       nextstate = LOAD_SHIP_DATA;
-                    end
-                // Check if the whole ship is on the board
-                ON_BOARD_CHECK:
-                    begin
-                        if (valid) nextstate = CHECK_CELLS;
-                        else       nextstate = LOAD_SHIP_DATA;
-                    end
-                // Check for collisions with other ships
-                CHECK_CELLS:
-                    begin
-                        if (finished_ship)
-                            begin
-                                if (valid) nextstate = SET_SHIP_POS;
-                                else       nextstate = LOAD_SHIP_DATA;
-                            end
-                        else               nextstate = CHECK_CELLS;
-                    end
-                // Save ship placement in memory, send out ship placement to fpga
-                SET_SHIP_POS:
-                    begin
-                        if (finished_ship)
-                            begin
-                                if (all_ships && expected_player) nextstate = GAME_START;
-                                else           nextstate = LOAD_SHIP_DATA;
-                            end
-                        else                   nextstate = SET_SHIP_PAUSE;
-                    end
-                // Intermediate state to make data_ready signal not 1 for longer than a clock cycle
-                SET_SHIP_PAUSE: nextstate = SET_SHIP_POS;
-                // After setting all ships, start the game!!! Reset/set all values as necessary
-                GAME_START: nextstate = LOAD_SHOT_DATA;
-                // Load in player inputs and save them, reset some values
-                LOAD_SHOT_DATA:
-                    begin
-                        if (read) nextstate = CHECK_PLAYER2;
-                        else      nextstate = LOAD_SHOT_DATA;
-                    end
-                // Check that the correct player is inputting, set valid
-                CHECK_PLAYER2:
-                    begin
-                        if (valid) nextstate = ON_BOARD_CHECK2;
-                        else      nextstate = LOAD_SHOT_DATA;
-                    end
-                // Check if the shot input is on the board
-                ON_BOARD_CHECK2:
-                    begin
-                        if (valid) nextstate = CHECK_SHOT_VALID;
-                        else       nextstate = LOAD_SHOT_DATA;
-                    end
-                // Check if shot is valid, set up write_data accordingly
-                CHECK_SHOT_VALID: 
-                    begin
-                        if (player)
-                            begin
-                                if (read_data0 == EMPTY)        nextstate = MARK_MISS;
-                                else if (read_data0 == SHIP)    nextstate = MARK_HIT;
-                                else                            nextstate = MARK_INVALID;
-                            end
-                        else
-                            begin
-                                if (read_data1 == EMPTY)        nextstate = MARK_MISS;
-                                else if (read_data1 == SHIP)    nextstate = MARK_HIT;
-                                else                            nextstate = MARK_INVALID;
-                            end
-                    end
-                // Write shot data to memory, send out signal to fpga if shot is invalid or miss
-                MARK_HIT: nextstate = GET_SHIP_INFO;
-                MARK_MISS: nextstate = LOAD_SHOT_DATA;
-                MARK_INVALID: nextstate = LOAD_SHOT_DATA;
-                // Get the info for the position of the next ship to check
-                GET_SHIP_INFO: nextstate = CHECK_SUNK;
-                // Check if a ship has been sunk
-                CHECK_SUNK:
-                    begin
-                        if (finished_ship)
-                            begin 
-                                if (all_ships) nextstate = CHECK_ALL_SUNK;
-                                else           nextstate = GET_SHIP_INFO;
-                            end
-                        else                   nextstate = CHECK_SUNK;
-                    end
-                // Check to see if a new ship has been sunk/all ships are sunk
-                CHECK_ALL_SUNK:
-                    begin
-                        if (sunk_count == 3'b101) nextstate = GAME_OVER;
-                        else                      nextstate = LOAD_SHOT_DATA;
-                    end
-                // Game over, the dragon won
-                GAME_OVER: nextstate = GAME_OVER;
-                default: nextstate = INITIAL_START;
-            endcase
+            if (reset) nextstate = INITIAL_START;
+            else
+                case(state)
+                    // Reset/set all values as necessary
+                    INITIAL_START: nextstate = RESET_MEMORY;
+                    // Reset the grid memory, don't need to reset Ship Storage because we will write over it
+                    RESET_MEMORY: 
+                        begin
+                            if (all_ships) nextstate = LOAD_SHIP_DATA;
+                            else      nextstate = RESET_MEMORY;
+                        end
+                    // Load in player inputs and save them, reset some values
+                    LOAD_SHIP_DATA:
+                        begin
+                            if (read) nextstate = CHECK_PLAYER;
+                            else      nextstate = LOAD_SHIP_DATA;
+                        end
+                    // Check that the correct player is inputting, set valid
+                    CHECK_PLAYER:
+                        begin
+                            if (valid) nextstate = ON_BOARD_CHECK;
+                            else       nextstate = LOAD_SHIP_DATA;
+                        end
+                    // Check if the whole ship is on the board
+                    ON_BOARD_CHECK:
+                        begin
+                            if (valid) nextstate = CHECK_CELLS;
+                            else       nextstate = LOAD_SHIP_DATA;
+                        end
+                    // Check for collisions with other ships
+                    CHECK_CELLS:
+                        begin
+                            if (finished_ship)
+                                begin
+                                    if (valid) nextstate = SET_SHIP_POS;
+                                    else       nextstate = LOAD_SHIP_DATA;
+                                end
+                            else               nextstate = CHECK_CELLS;
+                        end
+                    // Save ship placement in memory, send out ship placement to fpga
+                    SET_SHIP_POS:
+                        begin
+                            if (finished_ship)
+                                begin
+                                    if (all_ships && expected_player) nextstate = GAME_START;
+                                    else           nextstate = LOAD_SHIP_DATA;
+                                end
+                            else                   nextstate = SET_SHIP_PAUSE;
+                        end
+                    // Intermediate state to make data_ready signal not 1 for longer than a clock cycle
+                    SET_SHIP_PAUSE: nextstate = SET_SHIP_POS;
+                    // After setting all ships, start the game!!! Reset/set all values as necessary
+                    GAME_START: nextstate = LOAD_SHOT_DATA;
+                    // Load in player inputs and save them, reset some values
+                    LOAD_SHOT_DATA:
+                        begin
+                            if (read) nextstate = CHECK_PLAYER2;
+                            else      nextstate = LOAD_SHOT_DATA;
+                        end
+                    // Check that the correct player is inputting, set valid
+                    CHECK_PLAYER2:
+                        begin
+                            if (valid) nextstate = ON_BOARD_CHECK2;
+                            else      nextstate = LOAD_SHOT_DATA;
+                        end
+                    // Check if the shot input is on the board
+                    ON_BOARD_CHECK2:
+                        begin
+                            if (valid) nextstate = CHECK_SHOT_VALID;
+                            else       nextstate = LOAD_SHOT_DATA;
+                        end
+                    // Check if shot is valid, set up write_data accordingly
+                    CHECK_SHOT_VALID: 
+                        begin
+                            if (player)
+                                begin
+                                    if (read_data0 == EMPTY)        nextstate = MARK_MISS;
+                                    else if (read_data0 == SHIP)    nextstate = MARK_HIT;
+                                    else                            nextstate = MARK_INVALID;
+                                end
+                            else
+                                begin
+                                    if (read_data1 == EMPTY)        nextstate = MARK_MISS;
+                                    else if (read_data1 == SHIP)    nextstate = MARK_HIT;
+                                    else                            nextstate = MARK_INVALID;
+                                end
+                        end
+                    // Write shot data to memory, send out signal to fpga if shot is invalid or miss
+                    MARK_HIT: nextstate = GET_SHIP_INFO;
+                    MARK_MISS: nextstate = LOAD_SHOT_DATA;
+                    MARK_INVALID: nextstate = LOAD_SHOT_DATA;
+                    // Get the info for the position of the next ship to check
+                    GET_SHIP_INFO: nextstate = CHECK_SUNK;
+                    // Check if a ship has been sunk
+                    CHECK_SUNK:
+                        begin
+                            if (finished_ship)
+                                begin 
+                                    if (all_ships) nextstate = CHECK_ALL_SUNK;
+                                    else           nextstate = GET_SHIP_INFO;
+                                end
+                            else                   nextstate = CHECK_SUNK;
+                        end
+                    // Check to see if a new ship has been sunk/all ships are sunk
+                    CHECK_ALL_SUNK:
+                        begin
+                            if (sunk_count == 3'b101) nextstate = GAME_OVER;
+                            else                      nextstate = LOAD_SHOT_DATA;
+                        end
+                    // Game over, the dragon won
+                    GAME_OVER: nextstate = GAME_OVER;
+                    default: nextstate = INITIAL_START;
+                endcase
         end
 
     // Combinational/control signal logic
@@ -332,7 +334,6 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
             case(state)
                 INITIAL_START: // Reset everything/set all to 0's
                     begin
-                        hit = 1'b0;
                         valid = 1'b0;
                         all_ships = 1'b0;
                         finished_ship = 1'b0;
@@ -364,7 +365,6 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                     end 
                 RESET_MEMORY:
                     begin
-                        hit = 1'b0;
                         valid = 1'b0;
                         finished_ship = 1'b0;
                         write_data = EMPTY;
@@ -413,7 +413,6 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                 LOAD_SHIP_DATA: // Wait for player input, save player inputs and check valid player on next state
                     begin
                         valid = 1'b0;
-                        hit = 1'b0;
                         all_ships = 1'b0;
                         finished_ship = 1'b0;
                         write_data = EMPTY;
@@ -444,7 +443,6 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                     end
                 CHECK_PLAYER: // Set valid based on the player/expected_player equality
                     begin
-                        hit = 1'b0;
                         all_ships = 1'b0;
                         finished_ship = 1'b0;
                         write_data = EMPTY;
@@ -485,7 +483,6 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                     end
                 ON_BOARD_CHECK: // Set valid if ship input would be legal
                     begin
-                        hit = 1'b0;
                         all_ships = 1'b0;
                         finished_ship = 1'b0;
                         write_data = EMPTY;
@@ -535,7 +532,6 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                     end
                 CHECK_CELLS: // Go through each cell and check memory if cells are ships
                     begin   
-                        hit = 1'b0;
                         all_ships = 1'b0;
                         write_data = EMPTY;
                         write_enable0 = 1'b0;
@@ -627,7 +623,6 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                     end
                 SET_SHIP_POS: // Write data to memory, send out signal to fpga
                     begin
-                        hit = 1'b0;
                         valid = 1'b0;
                         write_data_ss = {row, col, direction};
                         data_ready = 1'b1;
@@ -726,7 +721,6 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                     end
                 SET_SHIP_PAUSE: // Turn of data_ready for 1 cycle, hold all busses
                     begin
-                        hit = 1'b0;
                         valid = 1'b0;
                         all_ships = 1'b0;
                         finished_ship = 1'b0;
@@ -758,7 +752,6 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                     end 
                 GAME_START: // Reset everything/set all to 0's
                     begin
-                        hit = 1'b0;
                         valid = 1'b0;
                         all_ships = 1'b0;
                         finished_ship = 1'b0;
@@ -791,7 +784,6 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                 LOAD_SHOT_DATA: // Wait for player input, save player inputs and check valid player on next state
                     begin
                         valid = 1'b0;
-                        hit = 1'b0;
                         all_ships = 1'b0;
                         finished_ship = 1'b0;
                         write_data = EMPTY;
@@ -822,7 +814,6 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                     end
                 CHECK_PLAYER2:  // Set valid based on the player/expected_player equality
                     begin
-                        hit = 1'b0;
                         all_ships = 1'b0;
                         finished_ship = 1'b0;
                         write_data = EMPTY;
@@ -863,7 +854,6 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                     end
                 ON_BOARD_CHECK2: // Set valid if shot input would be legal
                     begin
-                        hit = 1'b0;
                         all_ships = 1'b0;
                         finished_ship = 1'b0;
                         write_data = EMPTY;
@@ -906,7 +896,6 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                 CHECK_SHOT_VALID: // Set write data based on where the shot lands
                     begin
                         valid = 1'b0;
-                        hit = 1'b0;
                         all_ships = 1'b0;
                         finished_ship = 1'b0;
                         write_data = MISS;
@@ -935,102 +924,8 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                         sunk_count_old_bus0 = HOLD;
                         sunk_count_old_bus1 = HOLD;
                     end
-                        /*
-                        // Shot lands on empty, write miss, etc...
-                        if (player)
-                            begin
-                                if (read_data0 == EMPTY)        write_data = MISS;
-                                else if (read_data0 == SHIP)    write_data = HIT;
-                                else                                    write_data = EMPTY;
-                            end
-                        else
-                            begin
-                                if (read_data1 == EMPTY)        write_data = MISS;
-                                else if (read_data1 == SHIP)    write_data = HIT;
-                                else                                    write_data = EMPTY;
-                            end
-                    end 
-                CHECK_SHOT_VALID2: // Write shot data to memory, if miss/invalid set/send data_out
-                    begin
-                        all_ships = 1'b0;
-                        finished_ship = 1'b0;
-                        write_data_ss = 9'b0;
-                        write_enable_ss0 = 1'b0;
-                        write_enable_ss1 = 1'b0;
-                        row_addr_sel = 1'b0;
-                        col_addr_sel = 1'b0;
-
-                        player_bus = HOLD;
-                        direction_bus = HOLD;
-                        size_bus = RESET;
-                        ship_addr_bus = HOLD;
-                        row_bus = HOLD;
-                        col_bus = HOLD;
-                        row_addr_set_bus = HOLD;
-                        col_addr_set_bus = HOLD;
-                        row_addr_next_bus = HOLD;
-                        col_addr_next_bus = HOLD;
-                        sunk_count_bus = HOLD;
-                        sunk_count_old_bus0 = HOLD;
-                        sunk_count_old_bus1 = HOLD;
-                        
-
-                        if (write_data == MISS)
-                            begin
-                                valid = 1'b1;
-                                hit = 1'b0;
-                                write_data = MISS;
-                                data_ready = 1'b1;
-                                data_out = {MISS, row_addr, col_addr, ~player, 1'b0};
-
-                                expected_player_bus = ENABLE;
-
-                                if (player)
-                                    begin
-                                        write_enable0 = 1'b1;
-                                        write_enable1 = 1'b0;
-                                    end
-                                else 
-                                    begin
-                                        write_enable1 = 1'b1;
-                                        write_enable0 = 1'b0;
-                                    end
-                            end
-                        else if (write_data == HIT)
-                            begin
-                                valid = 1'b1;
-                                hit = 1'b1;
-                                write_data = HIT;
-                                data_ready = 1'b0;
-                                data_out = 12'b0;
-                                expected_player_bus = ENABLE;
-
-                                if (player)
-                                    begin
-                                        write_enable0 = 1'b1;
-                                        write_enable1 = 1'b0;
-                                    end
-                                else 
-                                    begin
-                                        write_enable0 = 1'b0;
-                                        write_enable1 = 1'b1;
-                                    end
-                            end
-                        else // The cell has already be shot at
-                            begin
-                                valid = 1'b0;
-                                hit = 1'b0;
-                                write_enable0 = 1'b0;
-                                write_enable1 = 1'b0;
-                                write_data = EMPTY;    
-                                data_ready = 1'b1;
-                                data_out = {SHIP, 4'b1111, 4'b1111, player, 1'b0};
-                                expected_player_bus = HOLD;
-                            end
-                    end */
                 MARK_MISS: // Set output for the player who won
                     begin
-                        hit = 1'b0;
                         valid = 1'b1;
                         all_ships = 1'b0;
                         finished_ship = 1'b0;
@@ -1075,7 +970,6 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                     end
                 MARK_HIT: // Set output for the player who won
                     begin
-                        hit = 1'b1;
                         valid = 1'b1;
                         all_ships = 1'b0;
                         finished_ship = 1'b0;
@@ -1117,7 +1011,6 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                     end
                 MARK_INVALID:
                     begin
-                        hit = 1'b0;
                         valid = 1'b0;
                         all_ships = 1'b0;
                         finished_ship = 1'b0;
@@ -1149,7 +1042,6 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                     end
                 GET_SHIP_INFO: // Read the Ship Storage information for the given player and ship
                     begin
-                        hit = 1'b1;
                         valid = 1'b0;
                         all_ships = 1'b0;
                         finished_ship = 1'b0;
@@ -1181,7 +1073,6 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                     end
                 CHECK_SUNK: // Go through the ship to see if all cells have been hit
                     begin
-                        hit = 1'b0;
                         valid = 1'b0;
                         write_data = EMPTY;
                         write_enable0 = 1'b0;
@@ -1353,7 +1244,6 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                     end
                 CHECK_ALL_SUNK: // Set the sunk_count_old from sunk_count and determine if a new ship is sunk
                     begin
-                        hit = 1'b0;
                         valid = 1'b0;
                         all_ships = 1'b0;
                         finished_ship = 1'b0;
@@ -1397,7 +1287,6 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                     end
                 GAME_OVER: // Set output for the player who won
                     begin
-                        hit = 1'b0;
                         valid = 1'b0;
                         all_ships = 1'b0;
                         finished_ship = 1'b0;
@@ -1431,7 +1320,6 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                     end
                 default: 
                     begin
-                        hit = 1'b0;
                         valid = 1'b0;
                         all_ships = 1'b0;
                         finished_ship = 1'b0;
