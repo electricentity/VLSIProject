@@ -14,7 +14,7 @@
 // Summary: Instantiate all necessary parts of our game
 //------------------------------------------------
 module battleship(input logic ph1, ph2, reset, read, player, direction,
-	              input logic [3:0] row, col,
+                  input logic [3:0] row, col,
                   output logic data_ready,
                   output logic [11:0] data_out);
 
