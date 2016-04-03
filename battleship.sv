@@ -69,7 +69,7 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                   output logic [11:0] data_out);
     
     // Combinational logic bits, includes resets and enables for sequential logic/flops
-    logic valid, expected_player, finished_ship, all_ships, player, direction;
+    logic valid, expected_player, finished_ship, player, direction;
     logic [2:0] size, sunk_count, sunk_count_old0, sunk_count_old1; // counters
     logic [3:0] row, col;
     logic [4:0] state, nextstate;
@@ -221,7 +221,7 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                     // Reset the grid memory, don't need to reset Ship Storage because we will write over it
                     RESET_MEMORY: 
                         begin
-                            if (all_ships) nextstate = LOAD_SHIP_DATA;
+                            if (valid) nextstate = LOAD_SHIP_DATA;
                             else      nextstate = RESET_MEMORY;
                         end
                     // Load in player inputs and save them, reset some values
@@ -257,7 +257,7 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                         begin
                             if (finished_ship)
                                 begin
-                                    if (all_ships && expected_player) nextstate = GAME_START;
+                                    if (valid && expected_player) nextstate = GAME_START;
                                     else           nextstate = LOAD_SHIP_DATA;
                                 end
                             else                   nextstate = SET_SHIP_PAUSE;
@@ -311,7 +311,7 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                         begin
                             if (finished_ship)
                                 begin 
-                                    if (all_ships) nextstate = CHECK_ALL_SUNK;
+                                    if (valid) nextstate = CHECK_ALL_SUNK;
                                     else           nextstate = GET_SHIP_INFO;
                                 end
                             else                   nextstate = CHECK_SUNK;
@@ -335,7 +335,6 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                 INITIAL_START: // Reset everything/set all to 0's
                     begin
                         valid = 1'b0;
-                        all_ships = 1'b0;
                         finished_ship = 1'b0;
                         write_data = EMPTY;
                         write_enable0 = 1'b0;
@@ -365,7 +364,6 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                     end 
                 RESET_MEMORY:
                     begin
-                        valid = 1'b0;
                         finished_ship = 1'b0;
                         write_data = EMPTY;
                         write_enable0 = 1'b1;
@@ -393,19 +391,19 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
 
                         if(row_addr == 4'b1001 && col_addr == 4'b1001) // if both row and col have been fully reset
                             begin
-                                all_ships = 1'b1;
+                                valid = 1'b1;
                                 row_addr_next_bus = RESET;
                                 col_addr_next_bus = RESET;
                             end
                         else if (col_addr == 4'b1001) // if the current row is fully reset
                             begin
-                                all_ships = 1'b0;
+                                valid = 1'b0;
                                 row_addr_next_bus = ENABLE;
                                 col_addr_next_bus = RESET;
                             end
                         else // if we aren't done with the current row, increase col
                             begin
-                                all_ships = 1'b0;
+                                valid = 1'b0;
                                 row_addr_next_bus = HOLD;
                                 col_addr_next_bus = ENABLE;
                             end
@@ -413,7 +411,6 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                 LOAD_SHIP_DATA: // Wait for player input, save player inputs and check valid player on next state
                     begin
                         valid = 1'b0;
-                        all_ships = 1'b0;
                         finished_ship = 1'b0;
                         write_data = EMPTY;
                         write_enable0 = 1'b0;
@@ -443,7 +440,6 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                     end
                 CHECK_PLAYER: // Set valid based on the player/expected_player equality
                     begin
-                        all_ships = 1'b0;
                         finished_ship = 1'b0;
                         write_data = EMPTY;
                         write_enable0 = 1'b0;
@@ -483,7 +479,6 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                     end
                 ON_BOARD_CHECK: // Set valid if ship input would be legal
                     begin
-                        all_ships = 1'b0;
                         finished_ship = 1'b0;
                         write_data = EMPTY;
                         write_enable0 = 1'b0;
@@ -532,7 +527,6 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                     end
                 CHECK_CELLS: // Go through each cell and check memory if cells are ships
                     begin   
-                        all_ships = 1'b0;
                         write_data = EMPTY;
                         write_enable0 = 1'b0;
                         write_data_ss = 9'b0;
@@ -623,7 +617,6 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                     end
                 SET_SHIP_POS: // Write data to memory, send out signal to fpga
                     begin
-                        valid = 1'b0;
                         write_data_ss = {row, col, direction};
                         data_ready = 1'b1;
 
@@ -652,14 +645,14 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
 
                                 if (ship_addr == 3'b100) // Last ship, switch players
                                     begin
-                                        all_ships = 1'b1;
+                                        valid = 1'b1;
 
                                         expected_player_bus = ENABLE;
                                         ship_addr_bus = RESET;
                                     end
                                 else // Not the last ship
                                     begin
-                                        all_ships = 1'b0;
+                                        valid = 1'b0;
 
                                         expected_player_bus = HOLD;
                                         ship_addr_bus = ENABLE;
@@ -684,7 +677,7 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                             begin
                                 finished_ship = 1'b0;
                                 write_data = SHIP;
-                                all_ships = 1'b0;
+                                valid = 1'b0;
                                 row_addr_sel = 1'b0;
                                 col_addr_sel = 1'b0;
                                 write_enable_ss0 = 1'b0;
@@ -722,7 +715,6 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                 SET_SHIP_PAUSE: // Turn of data_ready for 1 cycle, hold all busses
                     begin
                         valid = 1'b0;
-                        all_ships = 1'b0;
                         finished_ship = 1'b0;
                         write_data = EMPTY;
                         write_enable0 = 1'b0;
@@ -753,7 +745,6 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                 GAME_START: // Reset everything/set all to 0's
                     begin
                         valid = 1'b0;
-                        all_ships = 1'b0;
                         finished_ship = 1'b0;
                         write_data = EMPTY;
                         write_enable0 = 1'b0;
@@ -784,7 +775,6 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                 LOAD_SHOT_DATA: // Wait for player input, save player inputs and check valid player on next state
                     begin
                         valid = 1'b0;
-                        all_ships = 1'b0;
                         finished_ship = 1'b0;
                         write_data = EMPTY;
                         write_enable0 = 1'b0;
@@ -814,7 +804,6 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                     end
                 CHECK_PLAYER2:  // Set valid based on the player/expected_player equality
                     begin
-                        all_ships = 1'b0;
                         finished_ship = 1'b0;
                         write_data = EMPTY;
                         write_enable0 = 1'b0;
@@ -854,7 +843,6 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                     end
                 ON_BOARD_CHECK2: // Set valid if shot input would be legal
                     begin
-                        all_ships = 1'b0;
                         finished_ship = 1'b0;
                         write_data = EMPTY;
                         write_enable0 = 1'b0;
@@ -896,7 +884,6 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                 CHECK_SHOT_VALID: // Set write data based on where the shot lands
                     begin
                         valid = 1'b0;
-                        all_ships = 1'b0;
                         finished_ship = 1'b0;
                         write_data = MISS;
                         write_enable0 = 1'b0;
@@ -927,7 +914,6 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                 MARK_MISS: // Set output for the player who won
                     begin
                         valid = 1'b1;
-                        all_ships = 1'b0;
                         finished_ship = 1'b0;
                         write_data = MISS;
                         write_data_ss = 9'b0;
@@ -971,7 +957,6 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                 MARK_HIT: // Set output for the player who won
                     begin
                         valid = 1'b1;
-                        all_ships = 1'b0;
                         finished_ship = 1'b0;
                         write_data = HIT;
                         write_data_ss = 9'b0;
@@ -1012,7 +997,6 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                 MARK_INVALID:
                     begin
                         valid = 1'b0;
-                        all_ships = 1'b0;
                         finished_ship = 1'b0;
                         write_data = EMPTY;
                         write_enable0 = 1'b0;
@@ -1043,7 +1027,6 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                 GET_SHIP_INFO: // Read the Ship Storage information for the given player and ship
                     begin
                         valid = 1'b0;
-                        all_ships = 1'b0;
                         finished_ship = 1'b0;
                         write_data = EMPTY;
                         write_enable0 = 1'b0;
@@ -1073,7 +1056,6 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                     end
                 CHECK_SUNK: // Go through the ship to see if all cells have been hit
                     begin
-                        valid = 1'b0;
                         write_data = EMPTY;
                         write_enable0 = 1'b0;
                         write_enable1 = 1'b0;
@@ -1098,7 +1080,7 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                                     begin
                                         finished_ship = 1'b1;
                                         sunk_count_bus = ENABLE;
-                                        all_ships = 1'b1;
+                                        valid = 1'b1;
                                         row_addr_sel = 1'b1;
                                         col_addr_sel = 1'b1;
 
@@ -1113,7 +1095,7 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                                     begin
                                         finished_ship = 1'b1;
                                         sunk_count_bus = ENABLE;
-                                        all_ships = 1'b0;
+                                        valid = 1'b0;
                                         row_addr_sel = 1'b0;
                                         col_addr_sel = 1'b0;
                                         
@@ -1129,7 +1111,7 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                                     begin
                                         finished_ship = 1'b0;
                                         sunk_count_bus = HOLD;
-                                        all_ships = 1'b0;
+                                        valid = 1'b0;
                                         row_addr_sel = 1'b0;
                                         col_addr_sel = 1'b0;
                                         
@@ -1157,7 +1139,7 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                                     begin
                                         finished_ship = 1'b1;
                                         sunk_count_bus = ENABLE;
-                                        all_ships = 1'b1;
+                                        valid = 1'b1;
                                         row_addr_sel = 1'b1;
                                         col_addr_sel = 1'b1;
 
@@ -1172,7 +1154,7 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                                     begin
                                         finished_ship = 1'b1;
                                         sunk_count_bus = ENABLE;
-                                        all_ships = 1'b0;
+                                        valid = 1'b0;
                                         row_addr_sel = 1'b0;
                                         col_addr_sel = 1'b0;
                                         
@@ -1188,7 +1170,7 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                                     begin
                                         finished_ship = 1'b0;
                                         sunk_count_bus = HOLD;
-                                        all_ships = 1'b0;
+                                        valid = 1'b0;
                                         row_addr_sel = 1'b0;
                                         col_addr_sel = 1'b0;
                                         
@@ -1222,7 +1204,7 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
 
                                 if (ship_addr == 3'b100) // if it is the last ship, done checking for sunk ships
                                     begin
-                                        all_ships = 1'b1;
+                                        valid = 1'b1;
                                         row_addr_sel = 1'b1;
                                         col_addr_sel = 1'b1;
 
@@ -1232,7 +1214,7 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                                     end
                                 else // not the last ship, go to next ship
                                     begin
-                                        all_ships = 1'b0;
+                                        valid = 1'b0;
                                         row_addr_sel = 1'b0;
                                         col_addr_sel = 1'b0;
                                         
@@ -1245,7 +1227,6 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                 CHECK_ALL_SUNK: // Set the sunk_count_old from sunk_count and determine if a new ship is sunk
                     begin
                         valid = 1'b0;
-                        all_ships = 1'b0;
                         finished_ship = 1'b0;
                         write_data = EMPTY;
                         write_enable0 = 1'b0;
@@ -1288,7 +1269,6 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                 GAME_OVER: // Set output for the player who won
                     begin
                         valid = 1'b0;
-                        all_ships = 1'b0;
                         finished_ship = 1'b0;
                         write_data = EMPTY;
                         write_enable0 = 1'b0;
@@ -1321,7 +1301,6 @@ module controller(input logic ph1, ph2, reset, read, input_player, input_directi
                 default: 
                     begin
                         valid = 1'b0;
-                        all_ships = 1'b0;
                         finished_ship = 1'b0;
                         write_data = EMPTY;
                         write_enable0 = 1'b0;
