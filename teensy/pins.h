@@ -33,7 +33,10 @@
 //---Inputs---//
 
 //---Outputs---//
+
+//---MAY BE UNUSED---//
 #define P19 19 // data_ready
+//---MAY BE UNUSED---//
 
 #define P20 20 // data_out<0>
 #define P21 21 // data_out<1>
