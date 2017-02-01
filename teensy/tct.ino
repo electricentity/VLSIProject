@@ -7,37 +7,44 @@ bool check_outputs[NUM_OUTPUTS];
 bool read_inputs[NUM_INPUTS];
 
 void init_pins(){
+
   uint8_t i = 0;
 
 
-  while (i < NUM_GROUNDS){
+  for (i = 0; i < NUM_GROUNDS; i++) {
+
     pinMode(grounds[i], OUTPUT);
     digitalWrite(grounds[i], 0);
-    ++i;
+
   }
-  i = 0;
-  while (i < NUM_INPUTS){
+
+  for (i = 0; i < NUM_INPUTS; i++) {
+
     pinMode(inputs[i], OUTPUT);
     digitalWrite(inputs[i], 0);
-    ++i;
+
   }
-  i = 0;
-  while (i < NUM_OUTPUTS){
+
+  for (i = 0; i < NUM_OUTPUTS; i++) {
+
     pinMode(outputs[i], INPUT);
-    ++i;
+
   }
-  i = 0;
-  while (i < NUM_POWERS){
+
+  for (i = 0; i < NUM_POWERS; i++) {
+
     pinMode(powers[i], OUTPUT);
     digitalWrite(powers[i], 1);
-    ++i;
+
   }
 }
 
 void setup() {
+
   Serial.begin(9600);
 
   init_pins();
+
 }
 
 void loop(){
@@ -47,108 +54,147 @@ void loop(){
   Serial.read();
 
   //general purpose iterators
-  uint16_t i = 0; //Increments with the clock cycle
+  uint16_t vector_num = 0; //Increments with the clock cycle
   uint32_t j = 0; //General purpose counter
 
   unsigned long dt = 0;
+  bool new_vector = 1; // Start by reading in new vector
 
-  byte check = 0; //Indicates whether the testvector passed
+  bool check = 0; //Indicates whether the testvector passed
   
 
-  uint8_t inp_mask = 0x80; //Masked used for interacting with input
-  uint8_t out_mask = 0x80; //Mask used for interacting with output
+  uint16_t inp_mask = 0x0800; //Masked used for interacting with input
+  uint16_t out_mask = 0x0800; //Mask used for interacting with output
   uint32_t err_count = 0; //Counts the number of errors
   
-  while (i < NUM_STEPS){
-    j = 0;
-    
-    //Loop through the input pins
-    while (j < NUM_INPUTS){
+  // Loop through the vectors until you go through all of them
+  while (vector_num < NUMBER_OF_VETORS){
 
-      // Find the index for accessing the input_val array
-      // ((number of clock cycles) * (number of inputs) + the current input pin) / (size of elements in array)
-      uint16_t a = (i * NUM_INPUTS + j) >> 3;
+    if (new_vector) {
 
-      // Write the single bit to the pin
-      digitalWrite(inputs[j], input_vals[a] & inp_mask);
+      new_vector = 0;
 
-      // Save the value written to the read_inputs array
-      read_inputs[j] = (input_vals[a] & inp_mask) ? 1 : 0;
+      //Loop through the input pins
+      for (j = 0; j < NUM_INPUTS; j++) {
 
-      // Shift the mask for the next bit
-      inp_mask = inp_mask >> 1;
+        // Write the single bit to the pin
+        digitalWrite(inputs[j], input_vals[vector_num] & inp_mask);
 
-      // If the mask has been completely shifted reset it
-      if (inp_mask == 0) inp_mask = 0x80;
+        // Save the value written to the read_inputs array
+        read_inputs[j] = (input_vals[vector_num] & inp_mask) ? 1 : 0;
 
-      // Increment j
-      ++j;
+        // Shift the mask for the next bit
+        inp_mask = inp_mask >> 1;
+
+      }
+
+      // Reset the input mask
+      inp_mask = 0x0800;
+
+      // Loop through the outputs
+      for (j = 0; j < NUM_OUTPUTS; j++) {
+
+        // Save the value value to the check_outputs array
+        check_outputs[j] = (output_vals[vector_num] & out_mask) ? 1 : 0;
+
+        // shift the mask for the next bit
+        out_mask = out_mask >> 1;
+
+      }
+
+      // Reset the output mask
+      out_mask = 0x0800;
+
     }
     
-    j = 0;
-    
+    // The rising of ph1
+    digitalWrite(clock[0], 1);
+
+    // Wait for 10ms
+    while (millis() < dt) {}
+    dt = millis() + STEP_MS;
+
+    // The falling of ph1
+    digitalWrite(clock[0], 0);
+
     // Wait for 10ms
     while (millis() < dt) {}
     dt = millis() + STEP_MS;
     
-    // Loop through the outputs
-    while (j < NUM_OUTPUTS){
+    // The rising of ph2
+    digitalWrite(clock[1], 1);
 
-      // Find the index for accessing the output_val array
-      // ((number of clock cycles) * (number of outputs) + the current output pin) / (size of elements in array)
-      uint16_t a = (i * NUM_OUTPUTS + j) >> 3;
+    // Read data_ready signal
+    data_ready = digitalRead(DATA_READY);
 
-      // Save the value value to the check_outputs array
-      check_outputs[j] = (output_vals[a] & out_mask) ? 1 : 0;
+    // If there is data ready read in the outputs and verify
+    if (data_ready) {
 
-      // shift the mask for the next bit
-      out_mask = out_mask >> 1;
+      // Loop through the outputs
+      for (j = 0; j < NUM_OUTPUTS; j++) {
 
-      // If the mask has been completely shifted reset it
-      if (out_mask == 0) out_mask = 0x80;
+        // Read the pin and store in the read_outputs array
+        read_outputs[j] = digitalRead(outputs[j]);
 
-      // Read the pin and store in the read_outputs array
-      read_outputs[j] = digitalRead(outputs[j]);
+        // Check each value to verify the output was correct
+        if (read_outputs[j] != check_outputs[j]) check = 1;
 
-      // Check each value to verify the output was correct
-      if (read_outputs[j] != check_outputs[j]) check = 1;
+      }
 
-      // increment j
-      ++j;
+      // If the output was incorrect write out an error message
+      if (check){
+
+        Serial.print("Discrepancy on step: ");
+        Serial.print(i);
+        Serial.println(".");
+        Serial.print("Inputs: ");
+
+        for (j = 0; j < NUM_INPUTS; j++) {
+
+          Serial.print(read_inputs[j]);
+
+        }
+
+        Serial.print("\nExpected outputs: ");
+
+        for (j = 0; j < NUM_OUTPUTS; j++) {
+
+          Serial.print(check_outputs[j]);
+
+        }
+
+        Serial.print("\nActual outputs:   ");
+
+        for (j = 0; j < NUM_OUTPUTS; j++) {
+
+          Serial.print(read_outputs[j]);
+
+        }
+
+        Serial.println();
+
+        // increment the error count
+        ++err_count;
+      }
+
+      // Set up for next vector
+      vector_num++;
+      new_vector = 1;
+
     }
-
-    j = 0;
     
+    // Wait for 10ms
+    while (millis() < dt) {}
+    dt = millis() + STEP_MS;
 
-    // If the output was incorrect write out an error message
-    if (check){
-      Serial.print("Discrepancy on step: ");
-      Serial.print(i);
-      Serial.println(".");
-      Serial.print("Inputs: ");
-      while (j < NUM_INPUTS){
-        Serial.print(read_inputs[j]);
-        ++j;
-      }
-      j=0;
-      Serial.print("\nExpected outputs: ");
-      while (j < NUM_OUTPUTS){
-        Serial.print(check_outputs[j]);
-        ++j;
-      }
-      j=0;
-      Serial.print("\nActual outputs:   ");
-      while (j < NUM_OUTPUTS){
-        Serial.print(read_outputs[j]);
-        ++j;
-      }
-      j=0;
-      Serial.println();
+    // The falling of ph2
+    digitalWrite(clock[1], 0);    
 
-      // increment the error count
-      ++err_count;
-    }
-    ++i;
+    // Wait for 10ms
+    while (millis() < dt) {}
+    dt = millis() + STEP_MS;
+
+    
   }
 
   // All tests have been run, output final result
@@ -157,9 +203,10 @@ void loop(){
   Serial.println(" errors.");
 
   // Turn off the chip
-  i=0;
-  while (i < NUM_POWERS){
-    digitalWrite(powers[i], 0);
-    ++i;
+  for (j = 0; j < NUM_POWERS; j++) {  
+
+    digitalWrite(powers[j], 0);
+
   }  
+  
 }
