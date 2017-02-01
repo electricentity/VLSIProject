@@ -11,6 +11,7 @@ void init_pins(){
   uint8_t i = 0;
 
 
+  // Set the grounds to 0
   for (i = 0; i < NUM_GROUNDS; i++) {
 
     pinMode(grounds[i], OUTPUT);
@@ -18,6 +19,7 @@ void init_pins(){
 
   }
 
+  // Set the inputs to be outputs from the teensy
   for (i = 0; i < NUM_INPUTS; i++) {
 
     pinMode(inputs[i], OUTPUT);
@@ -25,12 +27,14 @@ void init_pins(){
 
   }
 
+  // Set the outputs to be inputs to the teens
   for (i = 0; i < NUM_OUTPUTS; i++) {
 
     pinMode(outputs[i], INPUT);
 
   }
 
+  // Set the powers to be logic 1
   for (i = 0; i < NUM_POWERS; i++) {
 
     pinMode(powers[i], OUTPUT);
