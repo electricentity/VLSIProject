@@ -11,13 +11,13 @@ void init_pins(){
   uint8_t i = 0;
 
 
-  // Set the grounds to 0
-  for (i = 0; i < NUM_GROUNDS; i++) {
+  // // Set the grounds to 0
+  // for (i = 0; i < NUM_GROUNDS; i++) {
 
-    pinMode(grounds[i], OUTPUT);
-    digitalWrite(grounds[i], 0);
+  //   pinMode(grounds[i], OUTPUT);
+  //   digitalWrite(grounds[i], 0);
 
-  }
+  // }
 
   // Set the inputs to be outputs from the teensy
   for (i = 0; i < NUM_INPUTS; i++) {
@@ -42,13 +42,13 @@ void init_pins(){
 
   }
 
-  // Set the powers to be logic 1
-  for (i = 0; i < NUM_POWERS; i++) {
+  // // Set the powers to be logic 1
+  // for (i = 0; i < NUM_POWERS; i++) {
 
-    pinMode(powers[i], OUTPUT);
-    digitalWrite(powers[i], 1);
+  //   pinMode(powers[i], OUTPUT);
+  //   digitalWrite(powers[i], 1);
 
-  }
+  // }
 }
 
 void setup() {
@@ -222,11 +222,11 @@ void loop(){
   Serial.print(err_count);
   Serial.println(" errors.");
 
-  // Turn off the chip
-  for (j = 0; j < NUM_POWERS; j++) {  
+  // // Turn off the chip
+  // for (j = 0; j < NUM_POWERS; j++) {  
 
-    digitalWrite(powers[j], 0);
+  //   digitalWrite(powers[j], 0);
 
-  }  
+  // }  
   
 }

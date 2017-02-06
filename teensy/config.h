@@ -6,14 +6,14 @@
 #define NUM_GROUNDS 3
 #define NUM_CLOCKS 2
 
-const uint8_t powers[] = {P5, P37, P39};
-const uint8_t grounds[] = {P4, P36, P40};
+// const uint8_t powers[] = {P5, P37, P39};
+// const uint8_t grounds[] = {P4, P36, P40};
 
 const uint8_t clocks[] = {P17, P18};
 
 const uint8_t DATA_READY = P19;
 
-const uint8_t inputs[] = {P3, P16, P15, P14, // reset, read, player, direction
+const uint8_t inputs[] = {P3, P16, P15, P14, / / reset, read, player, direction
                           P10,P11,P12,P13, P6,P7,P8,P9}; // row<3:0>, col<3:0>
 
 
