@@ -94,11 +94,11 @@ void loop(){
       //Loop through the input pins
       for (j = 0; j < NUM_INPUTS; j++) {
 
-        // Write the single bit to the pin
-        digitalWrite(inputs[j], input_vals[vector_num] & inp_mask);
-
         // Save the value written to the read_inputs array
         read_inputs[j] = (input_vals[vector_num] & inp_mask) ? 1 : 0;
+
+        // Write the single bit to the pin
+        digitalWrite(inputs[j], read_inputs[j]);
 
         // Shift the mask for the next bit
         inp_mask = inp_mask >> 1;
@@ -121,18 +121,6 @@ void loop(){
 
       // Reset the output mask
       out_mask = 0x0800;
-
-        Serial.print("Discrepancy on step: ");
-        Serial.print(vector_num);
-        Serial.println(".");
-        Serial.print("Inputs: ");
-
-        for (j = 0; j < NUM_INPUTS; j++) {
-
-          Serial.print(read_inputs[j]);
-
-        }
-
     }
     
     // The rising of ph1
@@ -208,6 +196,7 @@ void loop(){
       // Set up for next vector
       vector_num++;
       new_vector = 1;
+      check = 0;
 
     }
     

@@ -42,10 +42,10 @@
 #define P21 35 // data_out<1>
 #define P22 34 // data_out<2>
 #define P23 33 // data_out<3>
-#define P24 29 // data_out<4>
-#define P25 30 // data_out<5>
-#define P26 31 // data_out<6>
-#define P27 32 // data_out<7>
+#define P24 32 // data_out<4>
+#define P25 31 // data_out<5>
+#define P26 30 // data_out<6>
+#define P27 29 // data_out<7>
 #define P28 28 // data_out<8>
 #define P29 1// data_out<9>
 #define P30 2 // data_out<10>
