@@ -42,6 +42,8 @@ void init_pins(){
 
   }
 
+  pinMode(DATA_READY, INPUT);
+
   // // Set the powers to be logic 1
   // for (i = 0; i < NUM_POWERS; i++) {
 
@@ -64,6 +66,8 @@ void loop(){
   //Wait until the serial connection is initialized
   while (Serial.available() == 0){}
   Serial.read();
+
+  Serial.print("Test Started");
 
   //general purpose iterators
   uint16_t vector_num = 0; //Increments with the clock cycle
@@ -117,6 +121,17 @@ void loop(){
 
       // Reset the output mask
       out_mask = 0x0800;
+
+        Serial.print("Discrepancy on step: ");
+        Serial.print(vector_num);
+        Serial.println(".");
+        Serial.print("Inputs: ");
+
+        for (j = 0; j < NUM_INPUTS; j++) {
+
+          Serial.print(read_inputs[j]);
+
+        }
 
     }
     
