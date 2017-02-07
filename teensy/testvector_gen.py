@@ -21,6 +21,10 @@ print '*/'
 
 print '\n'
 
+print "#define NUMBER_OF_VETORS " + str(in_len)
+
+print '\n'
+
 newline = 0;
 print "const uint16_t PROGMEM input_vals[] = {"
 all_inputs = ''
