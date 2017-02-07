@@ -7,9 +7,9 @@ inputs<15:0> = {4b\'0000, data_out<23:12>}
 outputs<15:0> = {4b\'0000, data_out<11:0>}
 """
 
-inputs = [s[0:11] for s in testvectors]
+inputs = [s[0:12] for s in testvectors]
 in_len = len(inputs)
-outputs = [s[12:23] for s in testvectors]
+outputs = [s[12:24] for s in testvectors]
 out_len = len(outputs)
 
 
@@ -31,7 +31,7 @@ for a in inputs:
         all_inputs += '\n'
         newline = 0
 print all_inputs[:-2]
-print "}"
+print "};"
     
 print '\n'
 
@@ -45,5 +45,4 @@ for b in outputs:
         all_outputs += '\n'
         newline = 0
 print all_outputs[:-2]
-print "}"
-
+print "};"
